@@ -241,10 +241,17 @@ async def seeded_repo(memory_repo, fixture_doc_id):
 
 
 @pytest.fixture
-def small_dim_settings(valid_env, monkeypatch):
-    """Settings with EMBEDDING_DIM=3 for hermetic tests using fixture chunks."""
+def small_dim_settings(valid_env, monkeypatch, tmp_path):
+    """Settings with EMBEDDING_DIM=3 for hermetic tests using fixture chunks.
+
+    Also redirects ``RAG_PDF_STORAGE_DIR`` to a per-test ``tmp_path`` dir
+    so upload tests don't write {file_hash}.pdf files into the real
+    project ``data/pdfs/`` (which would accumulate forever and confuse
+    the /ui/pdf/{hash} route).
+    """
     monkeypatch.setenv("EMBEDDING_DIM", "3")
     monkeypatch.setenv("RAG_SIM_FLOOR", "0.1")
+    monkeypatch.setenv("RAG_PDF_STORAGE_DIR", str(tmp_path / "pdfs"))
     from rag.config import Settings, get_settings
 
     get_settings.cache_clear()

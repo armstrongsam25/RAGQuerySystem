@@ -1,16 +1,31 @@
-{# Inner content of the page-top #current-doc indicator. The wrapping
+{# Inner content of the sidebar #current-doc indicator. The wrapping
    <div id="current-doc"> lives in base.html; this partial provides only
    the inner content so HTMX innerHTML swaps (from GET /ui/current-doc,
-   POST /ui/clear, and the upload-success OOB region) work cleanly. #}
+   POST /ui/clear, and the upload-success OOB region) work cleanly.
+
+   When ``clear_chat`` is truthy in the context (POST /ui/clear), this
+   template also emits an OOB swap that wipes #chat-thread back to its
+   empty state — explicit "Clear document" is a fresh-slate action. #}
 {% if docs %}
   {% for doc in docs %}
   <div class="current-doc-card">
     <div class="current-doc-info">
       <span class="current-doc-label">Currently ingested:</span>
-      <span class="current-doc-name"
-            title="Filename only — the source PDF is not stored on the server.">
-        {{ doc.display_filename }}
-      </span>
+      {# Render as a link only when the original PDF bytes are on disk
+         (file_hash present AND in pdf_available_hashes set computed by
+         the route). Otherwise show plain text so a missing-file row
+         doesn't surface a dead /ui/pdf/{hash} link. #}
+      {% if doc.file_hash and doc.file_hash in pdf_available_hashes %}
+        <a class="current-doc-name current-doc-link"
+           href="/ui/pdf/{{ doc.file_hash }}"
+           target="_blank"
+           rel="noopener"
+           title="Open the original PDF in a new tab">
+          {{ doc.display_filename }}
+        </a>
+      {% else %}
+        <span class="current-doc-name">{{ doc.display_filename }}</span>
+      {% endif %}
       <span class="current-doc-meta">
         {{ doc.chunk_count }} chunk{% if doc.chunk_count != 1 %}s{% endif %} &middot;
         {{ doc.page_count }} page{% if doc.page_count != 1 %}s{% endif %}
@@ -22,7 +37,7 @@
       hx-post="/ui/clear"
       hx-target="#current-doc"
       hx-swap="innerHTML"
-      hx-confirm="Clear the current document? This cannot be undone.">
+      hx-confirm="Clear the current document? This will also clear the chat history.">
       Clear document
     </button>
   </div>
@@ -31,4 +46,17 @@
   <div class="current-doc-empty">
     No document ingested yet. Click the paperclip to upload a PDF.
   </div>
+{% endif %}
+
+{% if clear_chat %}
+{# OOB: wipe the chat thread back to the empty placeholder. Explicit
+   "Clear document" is a fresh-slate action per the product decision. #}
+<section id="chat-thread"
+         class="chat-thread"
+         role="log"
+         aria-live="polite"
+         aria-relevant="additions"
+         aria-label="Conversation"
+         hx-swap-oob="outerHTML">
+</section>
 {% endif %}

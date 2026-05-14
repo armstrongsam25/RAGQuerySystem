@@ -9,6 +9,7 @@ environment variable the app reads. Required fields raise a
 from __future__ import annotations
 
 from functools import lru_cache
+from pathlib import Path
 from typing import Literal
 
 from pydantic import Field, PostgresDsn, SecretStr
@@ -143,6 +144,16 @@ class Settings(BaseSettings):
             "Default 100 MiB. Enforced before any extraction or embedding work; "
             "exceeded uploads return HTTP 413 with the cap surfaced in the error "
             "message in both bytes and MB for reviewer-readable rejection."
+        ),
+    )
+    RAG_PDF_STORAGE_DIR: Path = Field(
+        default=Path("data/pdfs"),
+        description=(
+            "Directory where successfully-ingested PDF bytes are persisted so "
+            "the UI can serve the original document back to the user via "
+            "GET /ui/pdf/{file_hash}. Files are named {file_hash}.pdf and "
+            "deleted whenever their source_document row is deleted (clear or "
+            "replace). Created at app startup."
         ),
     )
 

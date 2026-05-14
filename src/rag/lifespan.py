@@ -111,6 +111,12 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     pool = make_pool(dsn)
     await pool.open(wait=True, timeout=10)
 
+    # PDF storage dir — created at startup so a read-only filesystem fails
+    # loudly here instead of on the first upload's commit-then-write path.
+    pdf_dir = settings.RAG_PDF_STORAGE_DIR
+    pdf_dir.mkdir(parents=True, exist_ok=True)
+    logger.info("pdf_storage_ready", extra={"path": str(pdf_dir.resolve())})
+
     # Feature 002 wiring: repository + providers behind clean abstractions.
     chunk_repo = PgVectorChunkRepository(pool)
     gemini = GeminiProvider(settings)

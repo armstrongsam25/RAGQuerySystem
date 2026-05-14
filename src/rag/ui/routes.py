@@ -29,11 +29,14 @@ Load-bearing pieces preserved:
 from __future__ import annotations
 
 import asyncio
+import os
+import re
 from pathlib import Path
 from typing import Annotated
+from urllib.parse import quote
 
-from fastapi import Depends, FastAPI, File, Form, Request, UploadFile
-from fastapi.responses import HTMLResponse
+from fastapi import Depends, FastAPI, File, Form, HTTPException, Request, UploadFile
+from fastapi.responses import FileResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from psycopg_pool import AsyncConnectionPool
@@ -49,10 +52,12 @@ from rag.query.responses import (
     QueryNoDocuments,
     QueryRefused,
 )
-from rag.repositories.base import ChunkRepository
+from rag.repositories.base import ChunkRepository, SourceDocumentInfo
 from rag.trace import TRACE_LOG_KEY, new_trace_id
 from rag.ui.upload_jobs import UploadJob
 from rag.ui.upload_validate import InvalidPDFError, validate_pdf_magic
+
+_FILE_HASH_RE = re.compile(r"[0-9a-f]{64}")
 
 logger = get_logger(__name__)
 
@@ -75,6 +80,59 @@ def _get_settings(request: Request) -> Settings:
 
 def _get_pool(request: Request) -> AsyncConnectionPool:
     return request.app.state.pool
+
+
+def _try_unlink_pdf(storage_dir: Path, file_hash: str, *, trace_id: str) -> None:
+    """Best-effort delete of a persisted PDF by its file_hash.
+
+    Missing files are not an error — they're expected when the system was
+    upgraded after an existing ingest, or when a prior write-side failure
+    left a DB row without a PDF. Other OSErrors get logged but never
+    propagate; the demo tolerates the orphan rather than 500'ing a clear.
+    """
+    if not _FILE_HASH_RE.fullmatch(file_hash):
+        return
+    path = storage_dir / f"{file_hash}.pdf"
+    try:
+        path.unlink(missing_ok=True)
+    except OSError as exc:
+        logger.warning(
+            "pdf_unlink_failed",
+            extra={TRACE_LOG_KEY: trace_id, "path": str(path), "error": str(exc)},
+        )
+
+
+def _write_pdf_atomically(storage_dir: Path, file_hash: str, pdf_bytes: bytes) -> None:
+    """Write PDF bytes to {storage_dir}/{file_hash}.pdf atomically.
+
+    Writes to a sibling `.tmp` first, then ``os.replace`` to the final name.
+    On same-volume targets this is atomic on POSIX and Windows, so a crash
+    can't leave a half-written file at the canonical path.
+    """
+    storage_dir.mkdir(parents=True, exist_ok=True)
+    final = storage_dir / f"{file_hash}.pdf"
+    tmp = storage_dir / f"{file_hash}.pdf.tmp"
+    tmp.write_bytes(pdf_bytes)
+    os.replace(tmp, final)
+
+
+def _pdf_available_hashes(
+    docs: list[SourceDocumentInfo], storage_dir: Path
+) -> set[str]:
+    """Return the subset of ``docs`` file_hashes whose PDF bytes are on disk.
+
+    Used by the templates to decide whether to render the filename as a
+    clickable /ui/pdf/{hash} link or as plain text — keeps a row with a
+    missing original (legacy ingest, write-side OSError that was logged
+    and suppressed) from surfacing a dead link.
+    """
+    available: set[str] = set()
+    for doc in docs:
+        if not doc.file_hash:
+            continue
+        if (storage_dir / f"{doc.file_hash}.pdf").is_file():
+            available.add(doc.file_hash)
+    return available
 
 
 def _render(template_name: str, context: dict) -> str:
@@ -177,6 +235,13 @@ def register_ui_routes(app: FastAPI) -> None:
         providers: Annotated[Providers, Depends(_get_providers)],
         settings: Annotated[Settings, Depends(_get_settings)],
     ) -> HTMLResponse:
+        """Render the assistant reply only (no chat-turn wrapper).
+
+        The client optimistically inserts the chat-turn shell (user bubble +
+        a "Thinking…" placeholder) on form submit and retargets the htmx
+        swap at the new .msg-assistant slot, so this route returns just the
+        inner partial that fills the slot. See base.html → onChatConfigRequest.
+        """
         trace_id = new_trace_id()
         try:
             response = await answer_question(
@@ -220,14 +285,14 @@ def register_ui_routes(app: FastAPI) -> None:
             html.headers["X-RAG-Trace-Id"] = trace_id
             return html
 
-        template = {
+        inner = {
             QueryAnswered: "_answered.html",
             QueryRefused: "_refused.html",
             QueryNoDocuments: "_no_documents.html",
         }[type(response)]
         html = _templates.TemplateResponse(
             request,
-            template,
+            inner,
             {"response": response},
         )
         html.headers["X-RAG-Trace-Id"] = trace_id
@@ -237,12 +302,55 @@ def register_ui_routes(app: FastAPI) -> None:
     async def ui_current_doc(
         request: Request,
         repo: Annotated[ChunkRepository, Depends(_get_chunk_repo)],
+        settings: Annotated[Settings, Depends(_get_settings)],
     ) -> HTMLResponse:
         docs = await repo.list_source_documents()
         return _templates.TemplateResponse(
             request,
             "_current_doc.html",
-            {"docs": docs},
+            {
+                "docs": docs,
+                "pdf_available_hashes": _pdf_available_hashes(
+                    docs, settings.RAG_PDF_STORAGE_DIR
+                ),
+            },
+        )
+
+    @app.get("/ui/pdf/{file_hash}")
+    async def ui_pdf(
+        file_hash: str,
+        repo: Annotated[ChunkRepository, Depends(_get_chunk_repo)],
+        settings: Annotated[Settings, Depends(_get_settings)],
+    ) -> FileResponse:
+        """Serve the original PDF bytes for an ingested source document.
+
+        The path uses the source-document's file_hash so we can validate it
+        as a 64-char hex string (which prevents path traversal) and look up
+        the display_filename to set a friendly Content-Disposition tab title.
+        """
+        if not _FILE_HASH_RE.fullmatch(file_hash):
+            raise HTTPException(status_code=404, detail="not found")
+        storage_dir = settings.RAG_PDF_STORAGE_DIR.resolve()
+        path = (storage_dir / f"{file_hash}.pdf").resolve()
+        # Belt-and-suspenders traversal guard. _FILE_HASH_RE already restricts
+        # to [0-9a-f]{64} so this can't fail in practice, but the check makes
+        # intent unmistakable and survives future regex loosening.
+        if not path.is_relative_to(storage_dir) or not path.is_file():
+            raise HTTPException(status_code=404, detail="not found")
+        # Recover the display_filename so the browser tab shows a friendly
+        # name instead of the 64-char hash. If the row was deleted between
+        # the link render and the click, fall back to the hash filename.
+        docs = await repo.list_source_documents()
+        display_filename = next(
+            (d.display_filename for d in docs if d.file_hash == file_hash),
+            f"{file_hash}.pdf",
+        )
+        return FileResponse(
+            path,
+            media_type="application/pdf",
+            headers={
+                "Content-Disposition": f'inline; filename="{quote(display_filename)}"',
+            },
         )
 
     @app.post("/ui/clear", response_class=HTMLResponse)
@@ -250,11 +358,20 @@ def register_ui_routes(app: FastAPI) -> None:
         request: Request,
         repo: Annotated[ChunkRepository, Depends(_get_chunk_repo)],
         pool: Annotated[AsyncConnectionPool, Depends(_get_pool)],
+        settings: Annotated[Settings, Depends(_get_settings)],
     ) -> HTMLResponse:
         trace_id = new_trace_id()
         logger.info("clear_requested", extra={TRACE_LOG_KEY: trace_id})
+        # Snapshot the hashes BEFORE the transaction so we can unlink the
+        # corresponding PDF files AFTER a successful commit. Doing the unlink
+        # inside the transaction would orphan PDFs on rollback.
+        prior_docs = await repo.list_source_documents()
         async with pool.connection() as conn, conn.transaction():
             deleted = await repo.delete_all_source_documents(connection=conn)
+        # Post-commit: best-effort unlink. Missing files are fine — the demo
+        # tolerates orphaned DB rows / orphaned files (they 404 on serve).
+        for doc in prior_docs:
+            _try_unlink_pdf(settings.RAG_PDF_STORAGE_DIR, doc.file_hash, trace_id=trace_id)
         logger.info(
             "clear_complete",
             extra={TRACE_LOG_KEY: trace_id, "deleted_source_documents": deleted},
@@ -262,7 +379,7 @@ def register_ui_routes(app: FastAPI) -> None:
         html = _templates.TemplateResponse(
             request,
             "_current_doc.html",
-            {"docs": []},
+            {"docs": [], "pdf_available_hashes": set(), "clear_chat": True},
         )
         html.headers["X-RAG-Trace-Id"] = trace_id
         return html
@@ -584,6 +701,13 @@ async def _run_upload_task(
 
     job.set_progress("clearing", "Clearing existing document…")
 
+    # Snapshot the prior doc list BEFORE the transaction so we can both
+    # (a) include `prior_filename` in the success template (the chat-thread
+    # "— Switched to NEW.pdf (was OLD.pdf) —" separator), and
+    # (b) unlink the prior PDF files after a successful commit.
+    prior_docs = await repo.list_source_documents()
+    prior_filename = prior_docs[0].display_filename if prior_docs else None
+
     try:
         async with upload_lock:
             async with pool.connection() as conn, conn.transaction():
@@ -605,6 +729,36 @@ async def _run_upload_task(
             # Outside the transaction: re-read the doc list so the OOB
             # swap on `#current-doc` reflects the post-ingest state.
             docs = await repo.list_source_documents()
+            # Post-commit filesystem ops: unlink prior PDFs, then write the
+            # new one. Order: unlink first so a hash-collision on a re-ingest
+            # (same file_hash → same path) doesn't unlink the file we just
+            # wrote. The new write is atomic (.tmp → os.replace).
+            for prior in prior_docs:
+                if prior.file_hash != outcome.file_hash:
+                    _try_unlink_pdf(
+                        settings.RAG_PDF_STORAGE_DIR,
+                        prior.file_hash,
+                        trace_id=trace_id,
+                    )
+            try:
+                _write_pdf_atomically(
+                    settings.RAG_PDF_STORAGE_DIR,
+                    outcome.file_hash,
+                    pdf_bytes,
+                )
+            except OSError as exc:
+                # The DB ingest already committed; failing to write the PDF
+                # leaves a serveable doc whose original is unrecoverable.
+                # Log loudly but don't fail the user-visible upload — the
+                # answers still work, the filename link will 404.
+                logger.warning(
+                    "pdf_persist_failed",
+                    extra={
+                        TRACE_LOG_KEY: trace_id,
+                        "file_hash": outcome.file_hash,
+                        "error": str(exc),
+                    },
+                )
     except UploadCancelledError as exc:
         logger.info(
             "upload_cancelled",
@@ -727,6 +881,10 @@ async def _run_upload_task(
                 "elapsed_s": round(outcome.elapsed_s, 2),
                 "trace_id": trace_id,
                 "docs": docs,
+                "pdf_available_hashes": _pdf_available_hashes(
+                    docs, settings.RAG_PDF_STORAGE_DIR
+                ),
+                "prior_filename": prior_filename,
             },
         )
     )

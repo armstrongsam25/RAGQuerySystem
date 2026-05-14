@@ -1,16 +1,19 @@
 <div class="status-card status-answered">
-  <span class="badge badge-answered">Answered</span>
   <p class="answer">{{ response.answer }}</p>
 
   <h3>Citations</h3>
   <ul class="citations">
     {% for c in response.citations %}
     <li class="citation">
-      <span class="page-badge">p. {{ c.page_number }}</span>
-      <blockquote>
-        {{ c.quoted_span }}{% if c.truncated %} <span class="truncated">(truncated)</span>{% endif %}
-      </blockquote>
-      <small class="chunk-id">chunk_id: <code>{{ c.chunk_id }}</code></small>
+      <details class="citation-details">
+        <summary>
+          <span class="page-badge">p. {{ c.page_number }}</span>
+          <span class="citation-summary-hint">show quote</span>
+        </summary>
+        <blockquote>
+          {{ c.quoted_span }}{% if c.truncated %} <span class="truncated">(truncated)</span>{% endif %}
+        </blockquote>
+      </details>
     </li>
     {% endfor %}
   </ul>

@@ -75,7 +75,8 @@ def test_get_root_renders_form(app_factory):
     assert r.status_code == 200
     assert r.headers["content-type"].startswith("text/html")
     assert 'hx-post="/ui/query"' in r.text
-    assert 'id="response"' in r.text
+    # The chat-thread is the append target for /ui/query responses.
+    assert 'id="chat-thread"' in r.text
     assert "Thinking" in r.text  # in-flight indicator (FR-021)
 
 

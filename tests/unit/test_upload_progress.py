@@ -238,7 +238,10 @@ async def test_upload_completes_to_success_via_polling(
         r_final = await _poll_until_terminal(client, task_id)
 
     assert r_final.status_code == 200
-    assert "Replaced previous document" in r_final.text
+    # Fresh ingest (empty corpus pre-upload): the template says "Ingested X"
+    # rather than the older unconditional "Replaced previous document with X".
+    assert "Upload complete" in r_final.text
+    assert "Ingested" in r_final.text
     assert "doc.pdf" in r_final.text
     assert "7 chunks" in r_final.text
     assert "3 pages" in r_final.text

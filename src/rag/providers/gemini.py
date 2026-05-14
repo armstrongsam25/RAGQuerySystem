@@ -60,6 +60,16 @@ _MAX_RETRIES = 4
 _BASE_BACKOFF_S = 2.0
 _MAX_BACKOFF_S = 30.0
 
+# Per-call timeouts. The SDK has no default request timeout, so a stuck
+# upstream (slow response stream, safety-review stall on short input)
+# would otherwise block the request thread indefinitely. asyncio.wait_for
+# surfaces a hung call as TimeoutError -> retry, and after the retry
+# budget is spent, as UpstreamProviderError -> 503.
+_TIMEOUT_EMBED_S = 15.0
+_TIMEOUT_COMPLETE_S = 30.0
+_TIMEOUT_JUDGE_S = 20.0
+_TIMEOUT_EXTRACT_S = 60.0
+
 
 class RateLimitedError(UpstreamProviderError):
     """Specialized upstream error for unrecoverable 429s.
@@ -112,21 +122,60 @@ def _is_retriable(exc: Exception) -> bool:
     )
 
 
-async def _with_retry[T](label: str, call: Callable[[], T]) -> T:
+async def _with_retry[T](
+    label: str, call: Callable[[], T], *, timeout_s: float = _TIMEOUT_COMPLETE_S
+) -> T:
     """Run a sync SDK call in a thread, retrying on transient upstream errors.
 
+    Each attempt is bounded by ``timeout_s`` via :func:`asyncio.wait_for`;
+    timeouts are treated as retriable (same as 504 DEADLINE_EXCEEDED).
     Backoff respects the SDK's `retryDelay` hint when present, else falls
     back to exponential backoff capped at `_MAX_BACKOFF_S`. After
     `_MAX_RETRIES` failed attempts, 429s raise :class:`RateLimitedError`
     (the CLI prints a quota-specific message); other transient codes raise
     plain :class:`UpstreamProviderError`. Non-retriable errors propagate
     as :class:`UpstreamProviderError` immediately.
+
+    NOTE on cancellation semantics: ``asyncio.wait_for`` cancels the wrapping
+    coroutine on timeout, but the inner ``asyncio.to_thread`` call cannot be
+    cancelled — the SDK thread keeps running until its socket eventually
+    closes. That's acceptable: the user-visible request returns promptly,
+    and the orphaned thread costs only its own stack until the underlying
+    httpx connection times out at the OS layer.
     """
     attempt = 0
     last_exc: Exception | None = None
     while True:
         try:
-            return await asyncio.to_thread(call)
+            return await asyncio.wait_for(asyncio.to_thread(call), timeout=timeout_s)
+        except TimeoutError as exc:
+            # Retriable. After exhausting the budget, surface as a plain
+            # UpstreamProviderError so the route turns it into a 503.
+            last_exc = exc
+            attempt += 1
+            if attempt > _MAX_RETRIES:
+                logger.warning(
+                    "gemini_call_timeout_exhausted",
+                    extra={
+                        "label": label,
+                        "attempts": attempt - 1,
+                        "timeout_s": timeout_s,
+                    },
+                )
+                raise UpstreamProviderError(
+                    "gemini", TimeoutError(f"{label} timed out after {timeout_s}s")
+                ) from exc
+            delay = min(_BASE_BACKOFF_S * (2 ** (attempt - 1)), _MAX_BACKOFF_S)
+            logger.info(
+                "gemini_call_timeout_retry",
+                extra={
+                    "label": label,
+                    "attempt": attempt,
+                    "delay_s": round(delay, 2),
+                    "timeout_s": timeout_s,
+                },
+            )
+            await asyncio.sleep(delay)
         except genai_errors.APIError as exc:
             last_exc = exc
             if not _is_retriable(exc):
@@ -214,7 +263,7 @@ class GeminiProvider:
                 return list(resp.embeddings[0].values)
 
             async with semaphore:
-                return await _with_retry("embed", _call)
+                return await _with_retry("embed", _call, timeout_s=_TIMEOUT_EMBED_S)
 
         return await asyncio.gather(*(_embed_one(t) for t in texts))
 
@@ -237,7 +286,7 @@ class GeminiProvider:
                 raise RuntimeError("Gemini returned no text content")
             return text
 
-        return await _with_retry("complete", _call)
+        return await _with_retry("complete", _call, timeout_s=_TIMEOUT_COMPLETE_S)
 
     # ---- judge -----------------------------------------------------------
 
@@ -268,7 +317,7 @@ class GeminiProvider:
                 raise RuntimeError("Gemini judge returned no text content")
             return text
 
-        raw = await _with_retry("judge", _call)
+        raw = await _with_retry("judge", _call, timeout_s=_TIMEOUT_JUDGE_S)
 
         try:
             payload = json.loads(raw)
@@ -300,7 +349,9 @@ class GeminiProvider:
             )
             return (resp.text or "").strip()
 
-        return await _with_retry(f"extract_page_{page_number}", _call)
+        return await _with_retry(
+            f"extract_page_{page_number}", _call, timeout_s=_TIMEOUT_EXTRACT_S
+        )
 
 
 def _parse_verdict(payload: object, passages: list[ChunkForJudging]) -> JudgeVerdict:

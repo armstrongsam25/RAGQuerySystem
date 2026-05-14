@@ -1,7 +1,10 @@
 {# Query-path error card. Visible copy is restricted to fixed category
    strings per the 2026-05-13 clarify decision (see
    contracts/error-rendering.md). No raw backend text reaches the UI;
-   the cause/message stays in the server-side log trail only. #}
+   the cause/message stays in the server-side log trail only.
+
+   Retry button appends a fresh chat turn (same `hx-include` strategy as
+   the question form, so the textarea contents go along). #}
 <div class="status-card status-error" role="alert">
   {% if category == "server" %}
     <span class="badge badge-error">Server error</span>
@@ -10,9 +13,9 @@
     <button class="btn-retry"
             type="button"
             hx-post="/ui/query"
-            hx-include="closest form, [name=question]"
-            hx-target="#response"
-            hx-swap="innerHTML">
+            hx-include="[name=question]"
+            hx-target="#chat-thread"
+            hx-swap="beforeend">
       Retry
     </button>
   {% elif category == "validation" %}
@@ -22,9 +25,9 @@
     <button class="btn-retry"
             type="button"
             hx-post="/ui/query"
-            hx-include="closest form, [name=question]"
-            hx-target="#response"
-            hx-swap="innerHTML">
+            hx-include="[name=question]"
+            hx-target="#chat-thread"
+            hx-swap="beforeend">
       Retry
     </button>
   {% elif category == "network" %}
@@ -34,9 +37,9 @@
     <button class="btn-retry"
             type="button"
             hx-post="/ui/query"
-            hx-include="closest form, [name=question]"
-            hx-target="#response"
-            hx-swap="innerHTML">
+            hx-include="[name=question]"
+            hx-target="#chat-thread"
+            hx-swap="beforeend">
       Retry
     </button>
   {% elif category == "rate_limited" %}
@@ -46,9 +49,9 @@
     <button class="btn-retry"
             type="button"
             hx-post="/ui/query"
-            hx-include="closest form, [name=question]"
-            hx-target="#response"
-            hx-swap="innerHTML">
+            hx-include="[name=question]"
+            hx-target="#chat-thread"
+            hx-swap="beforeend">
       Retry
     </button>
   {% else %}
@@ -59,9 +62,9 @@
     <button class="btn-retry"
             type="button"
             hx-post="/ui/query"
-            hx-include="closest form, [name=question]"
-            hx-target="#response"
-            hx-swap="innerHTML">
+            hx-include="[name=question]"
+            hx-target="#chat-thread"
+            hx-swap="beforeend">
       Retry
     </button>
   {% endif %}

@@ -183,10 +183,12 @@ def test_error_templates_dont_emit_raw_backend_strings() -> None:
 
 def test_aria_attributes_on_base_template() -> None:
     base_src = (_TEMPLATES_DIR / "base.html").read_text(encoding="utf-8")
-    # The #response region MUST announce answers politely.
-    assert re.search(r'<section[^>]*id="response"[^>]*aria-live="polite"', base_src) or re.search(
-        r'<section[^>]*aria-live="polite"[^>]*id="response"', base_src
-    ), '#response section must carry aria-live="polite"'
+    # The chat-thread region MUST announce new turns politely.
+    assert re.search(
+        r'<section[^>]*id="chat-thread"[^>]*aria-live="polite"', base_src
+    ) or re.search(
+        r'<section[^>]*aria-live="polite"[^>]*id="chat-thread"', base_src
+    ), '#chat-thread section must carry aria-live="polite"'
     # The #current-doc region also gets polite announcements after the
     # initial load swap so screen readers note doc state changes.
     assert re.search(r'id="current-doc"[^>]*aria-live="polite"', base_src) or re.search(
