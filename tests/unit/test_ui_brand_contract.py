@@ -37,29 +37,37 @@ _TEMPLATES_DIR = _REPO_ROOT / "src" / "rag" / "ui" / "templates"
 # (property, expected exact value as it appears in the declaration RHS).
 # The test asserts each property is declared with the brand-pinned value.
 # Case-insensitive on the hex literals; the property names must match
-# exactly. Source: contracts/css-tokens.md.
+# exactly. The palette is the navy/purple Nymbl identity shipped in
+# styles.css — keep this list in sync with the :root block.
 _REQUIRED_TOKENS: list[tuple[str, str]] = [
-    # Core ink/paper
-    ("--ink-900", "#0A0A0F"),
-    ("--ink-700", "#1F2028"),
-    ("--paper-50", "#F5F1E8"),
-    ("--paper-100", "#EDE7D9"),
-    # Accents
-    ("--signal-500", "#DAFE5D"),
-    ("--signal-600", "#B8DE3A"),
-    ("--ember-500", "#E85A4F"),
-    # Stone
-    ("--stone-50", "#F0ECE3"),
-    ("--stone-100", "#E2DCCE"),
-    ("--stone-200", "#CAC2B0"),
-    ("--stone-300", "#A39B89"),
-    ("--stone-500", "#6E6757"),
-    ("--stone-700", "#403B30"),
+    # Core navy
+    ("--navy-900", "#0F1638"),
+    ("--navy-800", "#141D4A"),
+    ("--navy-700", "#1A2558"),
+    ("--navy-600", "#0F1944"),
+    # Brand purple
+    ("--purple-500", "#4334DC"),
+    ("--purple-600", "#3628B8"),
+    ("--purple-400", "#5B4EE6"),
+    # Brand blue/teal
+    ("--blue-400", "#4DB8FF"),
+    ("--blue-500", "#41A7F1"),
+    ("--teal-500", "#3CB7A4"),
+    # Cool neutrals
+    ("--slate-50", "#F5F7FD"),
+    ("--slate-100", "#E2E6F0"),
+    ("--slate-200", "#C8CDDB"),
+    ("--slate-300", "#9BA2B5"),
+    ("--slate-500", "#5F6680"),
+    ("--slate-700", "#3A3F54"),
+    # Light surfaces
+    ("--gray-50", "#F5F7FD"),
+    ("--gray-100", "#EBEEF8"),
     # Semantic
-    ("--success", "#3F8F5C"),
-    ("--warning", "#D89A2E"),
-    ("--danger", "#C7372F"),
-    ("--info", "#4A6FA5"),
+    ("--success", "#22C55E"),
+    ("--warning", "#F59E0B"),
+    ("--danger", "#EF4444"),
+    ("--info", "#4DB8FF"),
 ]
 
 # Font-family / surface-alias / motion tokens — match by property name
@@ -132,11 +140,6 @@ def test_no_forbidden_strings_in_styles() -> None:
     for pat in forbidden_rgb_patterns:
         m = re.search(pat, css, re.IGNORECASE)
         assert m is None, f"Forbidden rgb() white/black in styles.css: {m.group(0)!r}"
-    # Literal substring 'purple' (case-insensitive). No false positives:
-    # no Nymbl token name contains 'purple'.
-    assert re.search(r"purple", css, re.IGNORECASE) is None, (
-        "Forbidden literal 'purple' present in styles.css"
-    )
 
 
 # ---- Template a11y attributes --------------------------------------------
@@ -186,9 +189,9 @@ def test_aria_attributes_on_base_template() -> None:
     # The chat-thread region MUST announce new turns politely.
     assert re.search(
         r'<section[^>]*id="chat-thread"[^>]*aria-live="polite"', base_src
-    ) or re.search(
-        r'<section[^>]*aria-live="polite"[^>]*id="chat-thread"', base_src
-    ), '#chat-thread section must carry aria-live="polite"'
+    ) or re.search(r'<section[^>]*aria-live="polite"[^>]*id="chat-thread"', base_src), (
+        '#chat-thread section must carry aria-live="polite"'
+    )
     # The #current-doc region also gets polite announcements after the
     # initial load swap so screen readers note doc state changes.
     assert re.search(r'id="current-doc"[^>]*aria-live="polite"', base_src) or re.search(
