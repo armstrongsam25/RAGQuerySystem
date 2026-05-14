@@ -4,6 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>RAG Demo</title>
+  <link rel="icon" type="image/png" href="/ui/static/favicon.png">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet"
@@ -148,7 +149,7 @@
   <footer>
     <small>
       Small RAG &mdash; see
-      <a href="https://github.com/armstrongsam25/NymblTechAssessment" target="_blank" rel="noopener">repository</a>
+      <a href="https://github.com/armstrongsam25/RAGQuerySystem" target="_blank" rel="noopener">repository</a>
       for spec + plan.
     </small>
   </footer>
@@ -247,9 +248,20 @@
 
     (function () {
       function swapNetworkError(evt) {
-        var target = evt.detail && evt.detail.requestConfig
-          ? document.querySelector(evt.detail.requestConfig.target || '#response')
-          : document.querySelector('#response');
+        // htmx 2.x resolves evt.detail.requestConfig.target to an Element, not
+        // the original selector string — passing it to querySelector throws
+        // "Document.querySelector: '[object HTMLElement]' is not a valid selector".
+        var targetVal = evt.detail && evt.detail.requestConfig
+          ? evt.detail.requestConfig.target
+          : null;
+        var target;
+        if (targetVal && typeof targetVal !== 'string') {
+          target = targetVal;
+        } else if (typeof targetVal === 'string' && targetVal) {
+          target = document.querySelector(targetVal);
+        } else {
+          target = document.querySelector('#response');
+        }
         if (!target) return;
         var tmpl = document.getElementById('error-fallback-network');
         if (!tmpl) return;

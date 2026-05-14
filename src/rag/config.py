@@ -57,6 +57,16 @@ class Settings(BaseSettings):
             "retired the 2.0 ID for new keys). Override via env if needed."
         ),
     )
+    GROUNDING_JUDGE_MODEL: str = Field(
+        default="gemini-2.5-flash-lite",
+        min_length=1,
+        description=(
+            "Gemini model id used by the grounding judge (LLM-as-judge from "
+            "spec FR-012). Defaults to `gemini-2.5-flash-lite` — cheaper than "
+            "the generation model since the judge only emits a small JSON "
+            "verdict. Uses the same GEMINI_API_KEY as embedding / generation."
+        ),
+    )
 
     # --- Database ---------------------------------------------------------
     DATABASE_URL: PostgresDsn = Field(
@@ -134,26 +144,6 @@ class Settings(BaseSettings):
             "exceeded uploads return HTTP 413 with the cap surfaced in the error "
             "message in both bytes and MB for reviewer-readable rejection."
         ),
-    )
-
-    # --- Grounding judge (Art IV.6 deviation — see spec.md Assumptions) --
-    GROUNDING_JUDGE_BASE_URL: str = Field(
-        default="http://host.docker.internal:1234/v1",
-        min_length=1,
-        description=(
-            "OpenAI-API-compatible endpoint URL for the grounding judge "
-            "(LM Studio / Ollama-with-/v1 / llama.cpp / vLLM)."
-        ),
-    )
-    GROUNDING_JUDGE_API_KEY: SecretStr = Field(
-        default=SecretStr("local-no-auth"),
-        min_length=1,
-        description="API key for the judge endpoint. Most local servers ignore it.",
-    )
-    GROUNDING_JUDGE_MODEL: str = Field(
-        default="llama-3.1-8b-instruct",
-        min_length=1,
-        description="Model identifier as exposed by the local judge server.",
     )
 
     # --- Logging ----------------------------------------------------------

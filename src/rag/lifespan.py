@@ -8,8 +8,8 @@ feature 002 to wire providers + repository onto ``app.state``):
     3. run_pending migrations (now picks up migrations/0002_query_path.sql too)
     4. verify EMBEDDING_DIM matches the schema's `chunk.embedding` column
     5. open AsyncConnectionPool
-    6. instantiate ChunkRepository + GeminiProvider + OpenAICompatJudgeProvider
-       and stash them on app.state for routes to depend on
+    6. instantiate ChunkRepository + GeminiProvider and stash them on
+       app.state for routes to depend on
     7. yield
     8. close the pool on shutdown
 """
@@ -29,7 +29,7 @@ from rag.config import Settings, get_settings
 from rag.db import make_pool
 from rag.log import configure_logging, get_logger
 from rag.migrations import run_pending
-from rag.providers import GeminiProvider, OpenAICompatJudgeProvider, Providers
+from rag.providers import GeminiProvider, Providers
 from rag.repositories import PgVectorChunkRepository
 
 logger = get_logger(__name__)
@@ -97,7 +97,6 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
             "embedding_model": settings.EMBEDDING_MODEL,
             "generation_model": settings.GENERATION_MODEL,
             "embedding_dim": settings.EMBEDDING_DIM,
-            "judge_base_url": settings.GROUNDING_JUDGE_BASE_URL,
             "judge_model": settings.GROUNDING_JUDGE_MODEL,
         },
     )
@@ -115,8 +114,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     # Feature 002 wiring: repository + providers behind clean abstractions.
     chunk_repo = PgVectorChunkRepository(pool)
     gemini = GeminiProvider(settings)
-    judge = OpenAICompatJudgeProvider(settings)
-    providers = Providers(embedder=gemini, generator=gemini, judge=judge)
+    providers = Providers(embedder=gemini, generator=gemini, judge=gemini)
 
     app.state.pool = pool
     app.state.schema_version = schema_version

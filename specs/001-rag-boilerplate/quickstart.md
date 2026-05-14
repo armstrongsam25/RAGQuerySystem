@@ -18,7 +18,7 @@ The reviewer does **not** need Python, `uv`, Postgres, or any Python packages on
 
 ```text
 $ git clone <repo>
-$ cd NymblTechAssessment
+$ cd RAGQuerySystem
 
 $ cp .env.example .env
 $ $EDITOR .env                            # fill in GEMINI_API_KEY=...

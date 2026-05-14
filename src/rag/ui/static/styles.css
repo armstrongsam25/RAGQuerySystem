@@ -230,9 +230,10 @@ form[hx-post="/ui/query"] {
 
 .input-group {
   display: flex;
-  /* Keep the Ask button + paperclip pinned to the top when the textarea
-     auto-grows past one line, so the controls don't dance vertically. */
-  align-items: flex-start;
+  /* Center the row so the Ask button text lines up with the textarea's
+     text on a single line; the button slides with the input center as
+     the textarea auto-grows. */
+  align-items: center;
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 12px;

@@ -21,7 +21,7 @@ description: "Task list for 002-rag-query-and-ui"
 
 ## Path Conventions
 
-Single-project layout extending feature 001's. All paths are repo-relative from `NymblTechAssessment/`.
+Single-project layout extending feature 001's. All paths are repo-relative from `RAGQuerySystem/`.
 
 ---
 

@@ -28,9 +28,7 @@ _VALID_ENV: dict[str, str] = {
     "RAG_GEMINI_CONCURRENCY": "4",
     "RAG_QUOTED_SPAN_MAX": "400",
     "RAG_QUESTION_MAX_LEN": "1000",
-    "GROUNDING_JUDGE_BASE_URL": "http://localhost:1234/v1",
-    "GROUNDING_JUDGE_API_KEY": "test-judge-key",
-    "GROUNDING_JUDGE_MODEL": "test-judge-model",
+    "GROUNDING_JUDGE_MODEL": "gemini-2.5-flash-lite",
 }
 
 

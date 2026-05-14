@@ -21,7 +21,7 @@ description: "Task list for 001-rag-boilerplate"
 
 ## Path Conventions
 
-Single-project layout per [plan.md §Project Structure](./plan.md). All paths are repo-relative from `NymblTechAssessment/`.
+Single-project layout per [plan.md §Project Structure](./plan.md). All paths are repo-relative from `RAGQuerySystem/`.
 
 ---
 

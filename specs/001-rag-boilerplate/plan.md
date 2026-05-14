@@ -59,7 +59,7 @@ specs/001-rag-boilerplate/
 ### Source Code (repository root)
 
 ```text
-NymblTechAssessment/
+RAGQuerySystem/
 ├── .env.example                 # All env vars the app reads, with safe placeholders
 ├── .gitignore                   # Already excludes .env, .venv, etc.
 ├── docker-compose.yml           # app + db services, named volume, db healthcheck

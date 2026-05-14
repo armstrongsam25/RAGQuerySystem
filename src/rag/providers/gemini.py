@@ -1,10 +1,12 @@
-"""Gemini provider: embeddings, generation, and per-page PDF extraction.
+"""Gemini provider: embeddings, generation, grounding judge, and per-page PDF extraction.
 
-Implements :class:`LLMProvider.embed` (gemini-embedding-001, with
-`output_dimensionality` pinned to `EMBEDDING_DIM` so the schema column
-matches) and :class:`LLMProvider.complete` (Gemini 2.5 Flash). The
-`judge` method raises `NotImplementedError` — judges run on the local
-OpenAI-compatible endpoint per the Art IV.6 deviation in plan.md.
+Implements every verb on :class:`LLMProvider`:
+  * :meth:`embed` — `gemini-embedding-001`, with `output_dimensionality`
+    pinned to `EMBEDDING_DIM` so the schema column matches.
+  * :meth:`complete` — Gemini 2.5 Flash (or whatever `GENERATION_MODEL` is).
+  * :meth:`judge` — Gemini 2.5 Flash Lite (or whatever `GROUNDING_JUDGE_MODEL`
+    is), using `response_mime_type="application/json"` so the verdict comes
+    back as parseable JSON.
 
 Also exposes :meth:`GeminiProvider.extract_page_text` for the ingest
 pipeline — per research R-010, ingest sends each PDF page individually
@@ -23,6 +25,7 @@ from __future__ import annotations
 
 import asyncio
 import io
+import json
 import re
 import time
 from collections.abc import Awaitable, Callable
@@ -236,7 +239,7 @@ class GeminiProvider:
 
         return await _with_retry("complete", _call)
 
-    # ---- judge (not implemented here — see openai_compat.py) ------------
+    # ---- judge -----------------------------------------------------------
 
     async def judge(
         self,
@@ -245,10 +248,34 @@ class GeminiProvider:
         answer: str,
         passages: list[ChunkForJudging],
     ) -> JudgeVerdict:
-        raise NotImplementedError(
-            "GeminiProvider does not implement judge; the grounding judge "
-            "runs on the local OpenAI-compat endpoint (plan.md Art IV.6 deviation)."
-        )
+        from rag.query.prompts import JUDGE_SYSTEM, build_judge_user_prompt
+
+        user_msg = build_judge_user_prompt(question, answer, passages)
+        model = self._settings.GROUNDING_JUDGE_MODEL
+
+        def _call() -> str:
+            resp = self._client.models.generate_content(
+                model=model,
+                contents=[user_msg],
+                config=genai_types.GenerateContentConfig(
+                    system_instruction=JUDGE_SYSTEM,
+                    temperature=0.0,
+                    response_mime_type="application/json",
+                ),
+            )
+            text = resp.text
+            if text is None:
+                raise RuntimeError("Gemini judge returned no text content")
+            return text
+
+        raw = await _with_retry("judge", _call)
+
+        try:
+            payload = json.loads(raw)
+        except json.JSONDecodeError as exc:
+            raise UpstreamProviderError("judge", exc) from exc
+
+        return _parse_verdict(payload, passages)
 
     # ---- extract_page_text ----------------------------------------------
 
@@ -274,6 +301,49 @@ class GeminiProvider:
             return (resp.text or "").strip()
 
         return await _with_retry(f"extract_page_{page_number}", _call)
+
+
+def _parse_verdict(payload: object, passages: list[ChunkForJudging]) -> JudgeVerdict:
+    """Validate the judge's JSON and produce a typed JudgeVerdict.
+
+    Per R-015 the expected shape is::
+
+        {entailed: bool, supports: {passage_id: [sentence_idx, ...]}, reason: str}
+
+    Out-of-range or unknown passage_ids and out-of-range sentence indices
+    are silently dropped — the judge is allowed to be sloppy at the edges,
+    but anything we keep must point at a real sentence in a real passage.
+    """
+    if not isinstance(payload, dict):
+        raise UpstreamProviderError(
+            "judge",
+            RuntimeError(f"judge JSON is not an object: {type(payload).__name__}"),
+        )
+
+    entailed = bool(payload.get("entailed", False))
+    raw_supports = payload.get("supports", {})
+    reason = str(payload.get("reason", ""))[:500]
+
+    sentence_counts = {p.passage_id: len(p.sentences) for p in passages}
+    cleaned_supports: dict[str, list[int]] = {}
+
+    if isinstance(raw_supports, dict):
+        for passage_id, indices in raw_supports.items():
+            pid = str(passage_id)
+            if pid not in sentence_counts:
+                continue
+            if not isinstance(indices, list):
+                continue
+            valid_indices: list[int] = []
+            for idx in indices:
+                if not isinstance(idx, int):
+                    continue
+                if 0 <= idx < sentence_counts[pid]:
+                    valid_indices.append(idx)
+            if valid_indices:
+                cleaned_supports[pid] = sorted(set(valid_indices))
+
+    return JudgeVerdict(entailed=entailed, supports=cleaned_supports, reason=reason)
 
 
 def _isolate_single_page(pdf_bytes: bytes, page_number: int) -> bytes:

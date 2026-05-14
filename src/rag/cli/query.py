@@ -18,7 +18,6 @@ from rag.db import make_pool
 from rag.log import configure_logging, get_logger
 from rag.providers import (
     GeminiProvider,
-    OpenAICompatJudgeProvider,
     Providers,
     UpstreamProviderError,
 )
@@ -80,8 +79,7 @@ async def _run(
     try:
         repo = PgVectorChunkRepository(pool)
         gemini = GeminiProvider(settings)
-        judge = OpenAICompatJudgeProvider(settings)
-        providers = Providers(embedder=gemini, generator=gemini, judge=judge)
+        providers = Providers(embedder=gemini, generator=gemini, judge=gemini)
         return await answer_question(
             question,
             repo=repo,

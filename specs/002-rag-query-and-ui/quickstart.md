@@ -22,7 +22,7 @@ Once feature 002 lands, this is the path from clone to a rendered answer in a br
 
 ```pwsh
 git clone <repo>
-cd NymblTechAssessment
+cd RAGQuerySystem
 Copy-Item .env.example .env
 # Edit .env:
 #   - Set GEMINI_API_KEY=<your-key>

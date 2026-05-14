@@ -21,7 +21,7 @@ description: "Task list for 003-pdf-upload-ui"
 
 ## Path Conventions
 
-Single-project layout continuing from features 001 / 002. All paths are repo-relative from `NymblTechAssessment/`.
+Single-project layout continuing from features 001 / 002. All paths are repo-relative from `RAGQuerySystem/`.
 
 ---
 
