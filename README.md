@@ -23,11 +23,11 @@
 ## Quickstart
 
 ```bash
-git clone <repo>
+git clone https://github.com/armstrongsam25/RAGQuerySystem
 cd RAGQuerySystem
 
 # 1. Configure
-cp .env.example .env        # fill all fields
+cp .env.example .env        # fill all environment fields
 
 # 2. Start a local OpenAI-compatible LLM on the host
 #    (LM Studio :1234, Ollama :11434, llama.cpp :8080 — any one)
