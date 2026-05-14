@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>RAG Demo</title>
+  <title>Nymbl RAG Demo</title>
   <link rel="icon" type="image/png" href="/ui/static/favicon.png">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -45,7 +45,7 @@
 
       <!-- Card header: title + theme toggle -->
       <header class="chat-card-header">
-        <h1>RAG Demo</h1>
+        <h1>Nymbl RAG Demo</h1>
         <div class="theme-toggle" role="group" aria-label="Color theme">
           <button type="button" class="theme-toggle-option" data-theme-value="light" aria-pressed="false" aria-label="Light theme" title="Light">
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -434,6 +434,42 @@
       // htmx:responseError needs no handler: the `htmx-config` meta tag in
       // <head> opts 4xx/5xx into swapping, so server-rendered error partials
       // land in the retargeted assistant slot automatically.
+    })();
+
+    // Auto-scroll to the bottom whenever a new message is produced.
+    // A MutationObserver on #chat-thread (childList + subtree) covers every
+    // path: optimistic user bubble + Thinking placeholder, server response
+    // swapping into the assistant slot, error cards, system messages.
+    // <details> toggles don't mutate childList, so expanding a citation
+    // doesn't yank the scroll.
+    //
+    // Scrolls BOTH the thread and the window because the scroll container
+    // differs by breakpoint — on desktop the .chat-thread has its own
+    // overflow; on mobile (≤820px) the document scrolls instead. Whichever
+    // isn't scrollable no-ops. behavior:'auto' bypasses the CSS
+    // scroll-behavior:smooth so rapid mutations don't race a running
+    // animation. Double-RAF defers until after the inserted content lays
+    // out, so scrollHeight reflects the final bottom.
+    (function () {
+      var thread = document.getElementById('chat-thread');
+      if (!thread) return;
+      var pending = false;
+      function scrollToBottom() {
+        thread.scrollTo({ top: thread.scrollHeight, behavior: 'auto' });
+        var docEl = document.scrollingElement || document.documentElement;
+        window.scrollTo({ top: docEl.scrollHeight, behavior: 'auto' });
+      }
+      var observer = new MutationObserver(function () {
+        if (pending) return;
+        pending = true;
+        requestAnimationFrame(function () {
+          requestAnimationFrame(function () {
+            pending = false;
+            scrollToBottom();
+          });
+        });
+      });
+      observer.observe(thread, { childList: true, subtree: true });
     })();
 
     // Hide the chat-empty placeholder as soon as the first turn lands.

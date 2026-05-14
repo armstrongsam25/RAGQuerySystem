@@ -3,7 +3,9 @@
    light-blue secondary, deep navy darks, clean white/lavender lights.
    No frameworks, no build step. */
 
-* { box-sizing: border-box; }
+* {
+  box-sizing: border-box;
+}
 
 :root {
   /* Color — core navy / white */
@@ -11,20 +13,20 @@
   --navy-800: #141D4A;
   --navy-700: #1A2558;
   --navy-600: #0F1944;
-  --white:    #FFFFFF;
-  --gray-50:  #F5F7FD;
+  --white: #FFFFFF;
+  --gray-50: #F5F7FD;
   --gray-100: #EBEEF8;
 
   /* Color — brand accents */
   --purple-500: #4334DC;
   --purple-600: #3628B8;
   --purple-400: #5B4EE6;
-  --blue-400:   #4DB8FF;
-  --blue-500:   #41A7F1;
-  --teal-500:   #3CB7A4;
+  --blue-400: #4DB8FF;
+  --blue-500: #41A7F1;
+  --teal-500: #3CB7A4;
 
   /* Color — cool neutrals */
-  --slate-50:  #F5F7FD;
+  --slate-50: #F5F7FD;
   --slate-100: #E2E6F0;
   --slate-200: #C8CDDB;
   --slate-300: #9BA2B5;
@@ -34,54 +36,59 @@
   /* Color — semantic */
   --success: #22C55E;
   --warning: #F59E0B;
-  --danger:  #EF4444;
-  --info:    #4DB8FF;
+  --danger: #EF4444;
+  --info: #4DB8FF;
 
   /* Type families */
   --font-display: "Inter", ui-sans-serif, system-ui, sans-serif;
-  --font-sans:    "Inter", ui-sans-serif, system-ui, sans-serif;
-  --font-mono:    "JetBrains Mono", ui-monospace, "SF Mono", monospace;
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, "SF Mono", monospace;
 
   /* Type scale (size / line-height pairs) */
   --text-display-2xl: 76px / 80px;
-  --text-display-xl:  60px / 64px;
-  --text-display-lg:  48px / 52px;
-  --text-heading-xl:  36px / 42px;
-  --text-heading-lg:  28px / 34px;
-  --text-heading-md:  22px / 28px;
-  --text-heading-sm:  18px / 26px;
-  --text-body-lg:     18px / 28px;
-  --text-body-md:     16px / 24px;
-  --text-body-sm:     14px / 20px;
-  --text-caption:     12px / 16px;
-  --text-mono-md:     14px / 22px;
-  --text-mono-sm:     12px / 18px;
+  --text-display-xl: 60px / 64px;
+  --text-display-lg: 48px / 52px;
+  --text-heading-xl: 36px / 42px;
+  --text-heading-lg: 28px / 34px;
+  --text-heading-md: 22px / 28px;
+  --text-heading-sm: 18px / 26px;
+  --text-body-lg: 18px / 28px;
+  --text-body-md: 16px / 24px;
+  --text-body-sm: 14px / 20px;
+  --text-caption: 12px / 16px;
+  --text-mono-md: 14px / 22px;
+  --text-mono-sm: 12px / 18px;
 
   /* Surface aliases — light mode defaults.
      --surface sits one elevation above --bg (cards, inputs, status
      containers) so dark mode can still imply layering. */
-  --bg:        var(--white);
-  --surface:   var(--gray-50);
-  --fg:        var(--navy-600);
-  --fg-muted:  var(--slate-500);
-  --border:    var(--slate-100);
-  --accent:    var(--purple-500);
+  --bg: var(--white);
+  --surface: var(--gray-50);
+  --fg: var(--navy-600);
+  --fg-muted: var(--slate-500);
+  --border: var(--slate-100);
+  --accent: var(--purple-500);
   --accent-fg: var(--white);
 
   /* Motion */
   --motion-pulse-duration: 1.5s;
+
+  /* Layout: cap the chat content column on desktop so user + assistant
+     bubbles read as one centered conversation instead of hugging the
+     left/right edges of a wide viewport. */
+  --chat-max-width: 800px;
 }
 
 /* Dark mode overrides — surface aliases only. Deep navy backgrounds
    with elevated navy-700 cards, light text, brighter purple accent. */
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
-    --bg:       var(--navy-900);
-    --surface:  var(--navy-800);
-    --fg:       #E8EAF2;
+    --bg: var(--navy-900);
+    --surface: var(--navy-800);
+    --fg: #E8EAF2;
     --fg-muted: var(--slate-300);
-    --border:   var(--navy-700);
-    --accent:   var(--purple-400);
+    --border: var(--navy-700);
+    --accent: var(--purple-400);
     --accent-fg: var(--white);
   }
 }
@@ -90,22 +97,22 @@
    <html> to "light" or "dark"; "system" clears the attribute so the
    @media block above takes over. */
 [data-theme="dark"] {
-  --bg:       var(--navy-900);
-  --surface:  var(--navy-800);
-  --fg:       #E8EAF2;
+  --bg: var(--navy-900);
+  --surface: var(--navy-800);
+  --fg: #E8EAF2;
   --fg-muted: var(--slate-300);
-  --border:   var(--navy-700);
-  --accent:   var(--purple-400);
+  --border: var(--navy-700);
+  --accent: var(--purple-400);
   --accent-fg: var(--white);
 }
 
 [data-theme="light"] {
-  --bg:       var(--white);
-  --surface:  var(--gray-50);
-  --fg:       var(--navy-600);
+  --bg: var(--white);
+  --surface: var(--gray-50);
+  --fg: var(--navy-600);
   --fg-muted: var(--slate-500);
-  --border:   var(--slate-100);
-  --accent:   var(--purple-500);
+  --border: var(--slate-100);
+  --accent: var(--purple-500);
   --accent-fg: var(--white);
 }
 
@@ -268,31 +275,39 @@ main {
     height: auto;
     overflow: auto;
   }
+
   #chat-pane {
     height: auto;
     min-height: 0;
   }
+
   .chat-thread {
     min-height: 300px;
     max-height: none !important;
   }
+
   .msg-assistant {
     max-width: 100%;
   }
+
   header h1 {
     font-size: 16px;
   }
+
   .theme-toggle {
     position: static;
     transform: none;
   }
+
   header {
     justify-content: space-between;
   }
+
   /* Narrower filenames so long hash-style names don't blow out the bar. */
   .doc-chip-name {
     max-width: 18ch;
   }
+
   .chat-input-bar {
     padding-left: 1rem;
     padding-right: 1rem;
@@ -334,7 +349,14 @@ form {
   flex-direction: column;
   gap: 0.5rem;
   margin: 0;
-  padding: 0.75rem 1.5rem calc(1rem + env(safe-area-inset-bottom));
+  /* Keep the bar's background + top border edge-to-edge, but pull its
+     content (textarea, buttons) into a centered column aligned with
+     .chat-thread. The max() floor preserves today's 1.5rem padding on
+     viewports narrower than --chat-max-width. */
+  padding:
+    0.75rem
+    max(1.5rem, calc((100% - var(--chat-max-width)) / 2))
+    calc(1rem + env(safe-area-inset-bottom));
   background: var(--surface);
   border-top: 1px solid var(--border);
 }
@@ -345,7 +367,7 @@ form {
    this, it slides over the thread — the thread scrolls independently. */
 #chat-pane,
 .chat-thread {
-  padding-bottom: 220px;
+  padding-bottom: 131px;
 }
 
 /* --- Input group (textarea + paperclip + Ask button) -------------------- */
@@ -381,16 +403,21 @@ form {
   color: var(--fg);
   padding: 0.5rem 1rem;
   background: transparent;
-  height: 38px;          /* single-line default — matches .btn-ask height */
-  max-height: 168px;     /* ~6 rows; autosize JS caps growth here */
+  height: 38px;
+  /* single-line default — matches .btn-ask height */
+  max-height: 168px;
+  /* ~6 rows; autosize JS caps growth here */
   overflow-y: auto;
   /* Hide the scrollbar UI (arrows + track) but keep scrolling functional
      when content exceeds max-height. The autosize JS already prevents the
      scrollbar from being needed until the user has typed past ~6 rows. */
-  scrollbar-width: none; /* Firefox */
+  scrollbar-width: none;
+  /* Firefox */
 }
+
 .input-group textarea::-webkit-scrollbar {
-  display: none; /* Chrome, Safari, Edge */
+  display: none;
+  /* Chrome, Safari, Edge */
 }
 
 .input-group textarea::placeholder {
@@ -455,8 +482,15 @@ form {
   transition: background-color 0.12s ease;
 }
 
-.btn-ask:hover { background: var(--purple-600); }
-.btn-ask:disabled { background: var(--slate-200); color: var(--fg-muted); cursor: not-allowed; }
+.btn-ask:hover {
+  background: var(--purple-600);
+}
+
+.btn-ask:disabled {
+  background: var(--slate-200);
+  color: var(--fg-muted);
+  cursor: not-allowed;
+}
 
 .btn-ask:focus-visible {
   outline: none;
@@ -659,6 +693,7 @@ form {
   font-weight: 500;
   letter-spacing: 0;
 }
+
 .htmx-request .htmx-indicator,
 .htmx-request.htmx-indicator {
   display: inline;
@@ -666,8 +701,15 @@ form {
 }
 
 @keyframes nymbl-pulse {
-  0%, 100% { opacity: 0.45; }
-  50%      { opacity: 1; }
+
+  0%,
+  100% {
+    opacity: 0.45;
+  }
+
+  50% {
+    opacity: 1;
+  }
 }
 
 /* --- Upload progress card ----------------------------------------------- */
@@ -719,8 +761,13 @@ form {
 }
 
 @keyframes upload-spin {
-  0%   { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
+  0% {
+    transform: rotate(0deg);
+  }
+
+  100% {
+    transform: rotate(360deg);
+  }
 }
 
 .upload-progress-stages {
@@ -785,6 +832,7 @@ form {
   border-color: var(--success);
   color: var(--accent-fg);
 }
+
 .upload-progress-stage--done .upload-progress-stage-label {
   color: var(--success);
 }
@@ -795,6 +843,7 @@ form {
   color: var(--white);
   animation: upload-stage-pulse 1.2s ease-in-out infinite;
 }
+
 .upload-progress-stage--active .upload-progress-stage-label {
   color: var(--purple-500);
 }
@@ -803,13 +852,21 @@ form {
   border-color: var(--slate-200);
   color: var(--slate-300);
 }
+
 .upload-progress-stage--pending .upload-progress-stage-label {
   color: var(--slate-300);
 }
 
 @keyframes upload-stage-pulse {
-  0%, 100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--purple-500) 35%, transparent); }
-  50%      { box-shadow: 0 0 0 6px color-mix(in srgb, var(--purple-500)  0%, transparent); }
+
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--purple-500) 35%, transparent);
+  }
+
+  50% {
+    box-shadow: 0 0 0 6px color-mix(in srgb, var(--purple-500) 0%, transparent);
+  }
 }
 
 .upload-progress-message {
@@ -838,6 +895,7 @@ form {
 /* Reduced-motion: suppress animations for users who request it.
    Static line + static stage dot still convey the same information. */
 @media (prefers-reduced-motion: reduce) {
+
   .htmx-request .htmx-indicator,
   .htmx-request.htmx-indicator,
   .upload-progress-stage--active .upload-progress-stage-dot {
@@ -857,12 +915,29 @@ form {
   box-shadow: 0 1px 2px color-mix(in srgb, var(--fg) 6%, transparent);
 }
 
-.status-answered { border-left-color: var(--success); }
-.status-refused  { border-left-color: var(--danger); }
-.status-empty    { border-left-color: var(--info); }
-.status-error    { border-left-color: var(--danger); }
-.status-upload         { border-left-color: var(--slate-700); }
-.status-upload-error   { border-left-color: var(--danger); }
+.status-answered {
+  border-left-color: var(--success);
+}
+
+.status-refused {
+  border-left-color: var(--danger);
+}
+
+.status-empty {
+  border-left-color: var(--info);
+}
+
+.status-error {
+  border-left-color: var(--danger);
+}
+
+.status-upload {
+  border-left-color: var(--slate-700);
+}
+
+.status-upload-error {
+  border-left-color: var(--danger);
+}
 
 .status-heading {
   font-family: var(--font-display);
@@ -915,12 +990,35 @@ form {
   margin-bottom: 0.5rem;
 }
 
-.badge-answered { background: color-mix(in srgb, var(--success) 14%, var(--surface)); color: var(--success); }
-.badge-refused  { background: color-mix(in srgb, var(--danger) 14%, var(--surface)); color: var(--danger); }
-.badge-empty    { background: color-mix(in srgb, var(--info) 14%, var(--surface)); color: var(--info); }
-.badge-error    { background: color-mix(in srgb, var(--danger) 14%, var(--surface)); color: var(--danger); }
-.badge-upload         { background: color-mix(in srgb, var(--slate-700) 14%, var(--surface)); color: var(--slate-700); }
-.badge-upload-error   { background: color-mix(in srgb, var(--danger) 14%, var(--surface)); color: var(--danger); }
+.badge-answered {
+  background: color-mix(in srgb, var(--success) 14%, var(--surface));
+  color: var(--success);
+}
+
+.badge-refused {
+  background: color-mix(in srgb, var(--danger) 14%, var(--surface));
+  color: var(--danger);
+}
+
+.badge-empty {
+  background: color-mix(in srgb, var(--info) 14%, var(--surface));
+  color: var(--info);
+}
+
+.badge-error {
+  background: color-mix(in srgb, var(--danger) 14%, var(--surface));
+  color: var(--danger);
+}
+
+.badge-upload {
+  background: color-mix(in srgb, var(--slate-700) 14%, var(--surface));
+  color: var(--slate-700);
+}
+
+.badge-upload-error {
+  background: color-mix(in srgb, var(--danger) 14%, var(--surface));
+  color: var(--danger);
+}
 
 .answer {
   font-family: var(--font-sans);
@@ -937,9 +1035,19 @@ form {
   color: var(--fg);
   max-inline-size: 68ch;
 }
-.refusal-cause-meta { margin: 0.5rem 0 0; color: var(--fg-muted); }
 
-.upload-meta { color: var(--fg-muted); font-family: var(--font-sans); font-size: 14px; line-height: 20px; margin: 0.25rem 0 0; }
+.refusal-cause-meta {
+  margin: 0.5rem 0 0;
+  color: var(--fg-muted);
+}
+
+.upload-meta {
+  color: var(--fg-muted);
+  font-family: var(--font-sans);
+  font-size: 14px;
+  line-height: 20px;
+  margin: 0.25rem 0 0;
+}
 
 /* Filenames inside the upload status cards can be hash-style names with
    no natural break points. Let them wrap rather than overflow the
@@ -966,7 +1074,11 @@ form {
   max-width: 100%;
   margin: 0.1rem 0 0.5rem;
 }
-.upload-doc-name:hover { text-decoration: underline; }
+
+.upload-doc-name:hover {
+  text-decoration: underline;
+}
+
 .upload-doc-name-inline {
   overflow-wrap: anywhere;
   word-break: break-word;
@@ -1020,7 +1132,12 @@ blockquote {
   max-inline-size: 68ch;
 }
 
-.truncated { color: var(--fg-muted); font-family: var(--font-sans); font-size: 14px; line-height: 20px; }
+.truncated {
+  color: var(--fg-muted);
+  font-family: var(--font-sans);
+  font-size: 14px;
+  line-height: 20px;
+}
 
 .chunk-id {
   font-family: var(--font-mono);
@@ -1037,6 +1154,7 @@ pre {
   overflow-x: auto;
   font-family: var(--font-mono);
 }
+
 code {
   font-family: var(--font-mono);
   font-size: 14px;
@@ -1052,17 +1170,38 @@ footer a {
   text-decoration: underline;
   text-decoration-color: var(--purple-500);
 }
-footer a:hover { text-decoration-color: var(--accent); color: var(--fg); }
+
+footer a:hover {
+  text-decoration-color: var(--accent);
+  color: var(--fg);
+}
 
 /* Dark mode tweaks beyond the surface-alias swap. */
 @media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) .htmx-indicator { color: var(--purple-400); }
-  :root:not([data-theme="light"]) .status-card { box-shadow: 0 1px 2px color-mix(in srgb, var(--navy-900) 40%, transparent); }
-  :root:not([data-theme="light"]) pre { background: var(--navy-700); }
+  :root:not([data-theme="light"]) .htmx-indicator {
+    color: var(--purple-400);
+  }
+
+  :root:not([data-theme="light"]) .status-card {
+    box-shadow: 0 1px 2px color-mix(in srgb, var(--navy-900) 40%, transparent);
+  }
+
+  :root:not([data-theme="light"]) pre {
+    background: var(--navy-700);
+  }
 }
-[data-theme="dark"] .htmx-indicator { color: var(--purple-400); }
-[data-theme="dark"] .status-card { box-shadow: 0 1px 2px color-mix(in srgb, var(--navy-900) 40%, transparent); }
-[data-theme="dark"] pre { background: var(--navy-700); }
+
+[data-theme="dark"] .htmx-indicator {
+  color: var(--purple-400);
+}
+
+[data-theme="dark"] .status-card {
+  box-shadow: 0 1px 2px color-mix(in srgb, var(--navy-900) 40%, transparent);
+}
+
+[data-theme="dark"] pre {
+  background: var(--navy-700);
+}
 
 /* ============================================================
    Bottom-bar upload-progress overrides.
@@ -1096,7 +1235,8 @@ footer a:hover { text-decoration-color: var(--accent); color: var(--fg); }
   position: relative;
   justify-content: space-between;
   gap: 0;
-  padding: 0 11px; /* leave room so the track ends at dot-centers */
+  padding: 0 11px;
+  /* leave room so the track ends at dot-centers */
   margin: 0.6rem 0 0.75rem;
   flex-wrap: nowrap;
 }
@@ -1156,14 +1296,25 @@ footer a:hover { text-decoration-color: var(--accent); color: var(--fg); }
   flex-direction: column;
   gap: 1rem;
   scroll-behavior: smooth;
+  width: 100%;
+  max-width: var(--chat-max-width);
+  margin-left: auto;
+  margin-right: auto;
 }
 
-.chat-thread::-webkit-scrollbar { width: 10px; }
-.chat-thread::-webkit-scrollbar-track { background: transparent; }
+.chat-thread::-webkit-scrollbar {
+  width: 10px;
+}
+
+.chat-thread::-webkit-scrollbar-track {
+  background: transparent;
+}
+
 .chat-thread::-webkit-scrollbar-thumb {
   background: color-mix(in srgb, var(--fg-muted) 30%, transparent);
   border-radius: 8px;
 }
+
 .chat-thread::-webkit-scrollbar-thumb:hover {
   background: color-mix(in srgb, var(--fg-muted) 50%, transparent);
 }
@@ -1217,7 +1368,7 @@ footer a:hover { text-decoration-color: var(--accent); color: var(--fg); }
    so it doesn't double up. */
 .msg-assistant {
   align-self: flex-start;
-  max-width: min(75%, 640px);
+  max-width: min(75%, 804px);
   background: var(--surface);
   color: var(--fg);
   padding: 0.6rem 0.95rem;
@@ -1278,7 +1429,7 @@ footer a:hover { text-decoration-color: var(--accent); color: var(--fg); }
      hint label, plus reserves space for the disclosure chevron. */
 }
 
-.citation-details > summary {
+.citation-details>summary {
   list-style: none;
   cursor: pointer;
   display: inline-flex;
@@ -1289,9 +1440,11 @@ footer a:hover { text-decoration-color: var(--accent); color: var(--fg); }
   user-select: none;
 }
 
-.citation-details > summary::-webkit-details-marker { display: none; }
+.citation-details>summary::-webkit-details-marker {
+  display: none;
+}
 
-.citation-details > summary::after {
+.citation-details>summary::after {
   content: "";
   display: inline-block;
   width: 8px;
@@ -1303,11 +1456,11 @@ footer a:hover { text-decoration-color: var(--accent); color: var(--fg); }
   transition: transform 0.15s ease;
 }
 
-.citation-details[open] > summary::after {
+.citation-details[open]>summary::after {
   transform: rotate(225deg) translate(-2px, -2px);
 }
 
-.citation-details > summary:focus-visible {
+.citation-details>summary:focus-visible {
   outline: none;
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 35%, transparent);
 }
@@ -1324,7 +1477,8 @@ footer a:hover { text-decoration-color: var(--accent); color: var(--fg); }
      content swap when expanded. Falling back to the markup text on
      browsers that don't support content replacement keeps the label
      readable either way. */
-  font-size: 0; /* hide markup text; reveal only the ::before content */
+  font-size: 0;
+  /* hide markup text; reveal only the ::before content */
 }
 
 .citation-summary-hint::before {
@@ -1347,36 +1501,44 @@ footer a:hover { text-decoration-color: var(--accent); color: var(--fg); }
 .msg-assistant .status-answered h3 {
   display: none;
 }
+
 .msg-assistant .citations {
   display: flex;
   flex-wrap: wrap;
   gap: 0.35rem 0.5rem;
   margin-top: 0.5rem;
 }
+
 .msg-assistant .citation {
   border-top: none;
   padding: 0;
 }
-.msg-assistant .citation-details > summary {
+
+.msg-assistant .citation-details>summary {
   padding: 0.1rem 0.5rem;
   border: 1px solid var(--border);
   border-radius: 999px;
   background: color-mix(in srgb, var(--surface) 60%, transparent);
 }
-.msg-assistant .citation-details > summary::after {
+
+.msg-assistant .citation-details>summary::after {
   display: none;
 }
-.msg-assistant .citation-details[open] > summary {
+
+.msg-assistant .citation-details[open]>summary {
   border-color: color-mix(in srgb, var(--accent) 40%, var(--border));
 }
+
 .msg-assistant .citation-details[open] {
   flex-basis: 100%;
 }
+
 .msg-assistant .citation-details blockquote {
   margin: 0.4rem 0 0;
   font-size: 14px;
   line-height: 20px;
 }
+
 .msg-assistant .citation .page-badge {
   font-size: 11px;
   line-height: 16px;
@@ -1384,6 +1546,7 @@ footer a:hover { text-decoration-color: var(--accent); color: var(--fg); }
   background: transparent;
   padding: 0;
 }
+
 .msg-assistant .citation-summary-hint,
 .msg-assistant .citation-summary-hint::before {
   display: none;
@@ -1391,8 +1554,13 @@ footer a:hover { text-decoration-color: var(--accent); color: var(--fg); }
 
 /* Reduced motion: kill the chevron transition. */
 @media (prefers-reduced-motion: reduce) {
-  .citation-details > summary::after { transition: none; }
-  .chat-thread { scroll-behavior: auto; }
+  .citation-details>summary::after {
+    transition: none;
+  }
+
+  .chat-thread {
+    scroll-behavior: auto;
+  }
 }
 
 /* Dark-mode tweaks for the chat bubbles. */
@@ -1401,6 +1569,7 @@ footer a:hover { text-decoration-color: var(--accent); color: var(--fg); }
     box-shadow: 0 1px 2px color-mix(in srgb, var(--navy-900) 50%, transparent);
   }
 }
+
 [data-theme="dark"] .msg-user {
   box-shadow: 0 1px 2px color-mix(in srgb, var(--navy-900) 50%, transparent);
 }
