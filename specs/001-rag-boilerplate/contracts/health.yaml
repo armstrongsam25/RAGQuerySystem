@@ -1,0 +1,103 @@
+openapi: 3.1.0
+info:
+  title: RAG Boilerplate — Health
+  version: "0.1.0"
+  description: |
+    The only HTTP surface in the boilerplate feature. Every other RAG endpoint
+    (ingest, query, eval) arrives with its downstream feature. This contract
+    is what `/speckit-tasks` will write tests against.
+servers:
+  - url: http://localhost:8000
+    description: Local dev (default port for `make up`)
+paths:
+  /health:
+    get:
+      summary: Service + database health
+      description: |
+        On each call, the handler executes a trivial round-trip query
+        (`SELECT 1`) against the vector database and reports the applied
+        schema version. Returns 200 only after migrations have applied on
+        startup; before that, the handler is not yet routed.
+
+        The endpoint is **not** Kubernetes-style split (no separate
+        `/health/ready`); a single endpoint reflects both process liveness
+        and database reachability, per clarification Q2.
+      operationId: getHealth
+      responses:
+        '200':
+          description: App and database both healthy.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthOk'
+              examples:
+                healthy:
+                  value:
+                    status: ok
+                    schema_version: "0001_init_vector_store.sql"
+                    db: ok
+                    embedding_model: text-embedding-004
+                    embedding_dim: 768
+        '503':
+          description: Database round-trip failed or timed out.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthUnhealthy'
+              examples:
+                db_down:
+                  value:
+                    status: unhealthy
+                    schema_version: "0001_init_vector_store.sql"
+                    db: error
+                    error: "database connection refused"
+components:
+  schemas:
+    HealthOk:
+      type: object
+      required: [status, schema_version, db, embedding_model, embedding_dim]
+      additionalProperties: false
+      properties:
+        status:
+          type: string
+          enum: [ok]
+        schema_version:
+          type: string
+          description: |
+            Filename of the most recent applied migration. Matches the PK in
+            the `schema_migrations` table.
+          example: "0001_init_vector_store.sql"
+        db:
+          type: string
+          enum: [ok]
+        embedding_model:
+          type: string
+          description: |
+            Configured embedding model identifier (informational; the
+            boilerplate does not call Gemini).
+          example: text-embedding-004
+        embedding_dim:
+          type: integer
+          minimum: 1
+          description: |
+            Configured embedding dimensionality. Verified to match the
+            `chunk.embedding` column's pgvector dimensionality at startup
+            (see R-004 in research.md).
+          example: 768
+    HealthUnhealthy:
+      type: object
+      required: [status, schema_version, db]
+      additionalProperties: false
+      properties:
+        status:
+          type: string
+          enum: [unhealthy]
+        schema_version:
+          type: string
+          example: "0001_init_vector_store.sql"
+        db:
+          type: string
+          enum: [error]
+        error:
+          type: string
+          description: Human-readable cause; not a contract guarantee.

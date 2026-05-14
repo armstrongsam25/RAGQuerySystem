@@ -1,0 +1,65 @@
+{# Upload-path error card. Same category vocabulary as _error.html plus
+   the `concurrent` and `cancelled` categories that are specific to the
+   upload flow. The Retry button re-opens the hidden file picker. #}
+<div class="status-card status-upload-error" role="alert">
+  {% if category == "server" %}
+    <span class="badge badge-upload-error">Server error</span>
+    <h3 class="status-heading">Server error</h3>
+    <p>Something went wrong on our end. Please try again.</p>
+    <button class="btn-retry"
+            type="button"
+            onclick="document.getElementById('pdf-file').click()">
+      Retry
+    </button>
+  {% elif category == "validation" %}
+    <span class="badge badge-upload-error">Invalid input</span>
+    <h3 class="status-heading">Invalid input</h3>
+    <p>We couldn't process that request. Please review and try again.</p>
+    <button class="btn-retry"
+            type="button"
+            onclick="document.getElementById('pdf-file').click()">
+      Retry
+    </button>
+  {% elif category == "network" %}
+    <span class="badge badge-upload-error">Network error</span>
+    <h3 class="status-heading">Network error</h3>
+    <p>Couldn't reach the server. Check your connection and try again.</p>
+    <button class="btn-retry"
+            type="button"
+            onclick="document.getElementById('pdf-file').click()">
+      Retry
+    </button>
+  {% elif category == "concurrent" %}
+    <span class="badge badge-upload-error">Upload in progress</span>
+    <h3 class="status-heading">Upload in progress</h3>
+    <p>Another upload is running. Wait for it to finish, then try again.</p>
+    {# No retry button: the in-progress upload card already polls and
+       supersedes this card when the prior upload terminates. #}
+  {% elif category == "rate_limited" %}
+    <span class="badge badge-upload-error">Service busy</span>
+    <h3 class="status-heading">Service busy</h3>
+    <p>We're hitting upstream rate limits. Please wait a moment and try again.</p>
+    <button class="btn-retry"
+            type="button"
+            onclick="document.getElementById('pdf-file').click()">
+      Retry
+    </button>
+  {% elif category == "cancelled" %}
+    <span class="badge badge-upload-error">Cancelled</span>
+    <h3 class="status-heading">Upload cancelled</h3>
+    <p>Upload was cancelled.</p>
+  {% else %}
+    <span class="badge badge-upload-error">Server error</span>
+    <h3 class="status-heading">Server error</h3>
+    <p>Something went wrong on our end. Please try again.</p>
+    <button class="btn-retry"
+            type="button"
+            onclick="document.getElementById('pdf-file').click()">
+      Retry
+    </button>
+  {% endif %}
+  {% if prior_corpus_intact %}
+    <p class="upload-meta">Your existing documents are unchanged.</p>
+  {% endif %}
+</div>
+<!-- trace_id: {{ trace_id }} -->

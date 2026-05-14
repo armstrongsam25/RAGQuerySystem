@@ -1,0 +1,94 @@
+[project]
+name = "rag"
+version = "0.2.0"
+description = "Small RAG system"
+readme = "README.md"
+requires-python = ">=3.12,<3.13"
+license = { text = "MIT" }
+authors = [{ name = "Nymbl RAG Assessment" }]
+
+dependencies = [
+    "fastapi>=0.115",
+    "pydantic>=2.7",
+    "pydantic-settings>=2.5",
+    "psycopg[binary,pool]>=3.2",
+    "pgvector>=0.3",
+    "typer>=0.12",
+    "uvicorn[standard]>=0.30",
+    "google-genai>=0.3",
+    "openai>=1.50",
+    "jinja2>=3.1",
+    "pypdf>=4.0",
+    "tiktoken>=0.7",
+    "python-multipart>=0.0.9",
+    "numpy>=1.26",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.3",
+    "pytest-asyncio>=0.24",
+    "httpx>=0.27",
+    "ruff>=0.6",
+    "reportlab>=4.0",
+]
+
+[project.scripts]
+rag = "rag.cli.main:app"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/rag"]
+
+[tool.hatch.build.targets.sdist]
+include = ["src/rag", "migrations", "pyproject.toml", "README.md"]
+
+# --- ruff -----------------------------------------------------------------
+# Constitution Art VI.1 + VI.5: lint + format, ban bare/blind excepts.
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = [
+    "E",   # pycodestyle errors
+    "F",   # pyflakes
+    "W",   # pycodestyle warnings
+    "I",   # isort
+    "B",   # flake8-bugbear
+    "UP",  # pyupgrade
+    "BLE", # flake8-blind-except — Art VI.5: no bare/blind except
+    "SIM", # flake8-simplify
+    "RUF", # ruff-specific
+]
+ignore = [
+    "E501",  # line length is handled by formatter
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["B011"]                # allow `assert False` in tests
+"src/rag/cli/**" = ["B008"]          # typer.Argument(...) as default is idiomatic Typer
+"scripts/**" = ["BLE001"]            # ad-hoc utility scripts may surface third-party errors loosely
+
+[tool.ruff.format]
+quote-style = "double"
+
+# --- pytest ----------------------------------------------------------------
+[tool.pytest.ini_options]
+minversion = "8.0"
+asyncio_mode = "auto"
+testpaths = ["tests"]
+markers = [
+    "integration: requires RUN_INTEGRATION=1 and a running `make up` stack",
+]
+addopts = "-m 'not integration' -ra"
+filterwarnings = [
+    "error",
+    # google-genai emits some deprecation warnings transitively; tolerate them.
+    "ignore::DeprecationWarning:google.*",
+    "ignore::DeprecationWarning:pydantic.*",
+]

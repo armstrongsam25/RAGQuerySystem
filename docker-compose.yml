@@ -1,0 +1,51 @@
+services:
+  db:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-rag}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-rag}
+      POSTGRES_DB: ${POSTGRES_DB:-rag}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - pg_isready -U "$$POSTGRES_USER" -d "$$POSTGRES_DB"
+      interval: 5s
+      timeout: 3s
+      retries: 12
+      start_period: 5s
+    restart: unless-stopped
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    env_file:
+      - .env
+    environment:
+      # Override the .env DATABASE_URL host so the app talks to the
+      # `db` service inside the compose network, regardless of what
+      # the developer put in .env (which may point at localhost for
+      # host-side tooling).
+      DATABASE_URL: postgresql://${POSTGRES_USER:-rag}:${POSTGRES_PASSWORD:-rag}@db:5432/${POSTGRES_DB:-rag}
+    ports:
+      - "8000:8000"
+    # Linux: make host.docker.internal resolve to the host so the
+    # local OpenAI-API-compatible grounding judge (LM Studio / Ollama /
+    # llama.cpp) is reachable from inside the container, matching the
+    # macOS/Windows behavior of Docker Desktop. Feature 002 / FR-028.
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      # Mount data/ read-only so `make ingest` (which dispatches inside
+      # the container) can reach the committed sample PDF + any PDFs the
+      # developer drops in. Feature 002 / FR-029.
+      - ./data:/app/data:ro
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  pgdata:

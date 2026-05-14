@@ -1,0 +1,29 @@
+# Keep the build context small and never bake secrets into the image.
+.git/
+.gitignore
+.dockerignore
+.env
+.env.*
+!.env.example
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+dist/
+build/
+*.egg-info/
+specs/
+.specify/
+.claude/
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+# README.md is referenced by pyproject.toml's `readme` field — hatchling
+# needs it at build time to validate the project metadata. Do NOT exclude.
+docs/
+tests/
+pgdata/

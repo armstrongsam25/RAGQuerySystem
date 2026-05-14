@@ -1,0 +1,830 @@
+/* Nymbl-branded styles for the RAG demo UI.
+   Two families plus mono, warm paper + ink surfaces, chartreuse signal
+   as a scalpel-applied single accent. No frameworks, no build step.
+   Brand-token contract: src/specs/004-nymbl-ui-polish/contracts/css-tokens.md. */
+
+* { box-sizing: border-box; }
+
+:root {
+  /* Color — core ink/paper */
+  --ink-900: #0A0A0F;
+  --ink-700: #1F2028;
+  --paper-50: #F5F1E8;
+  --paper-100: #EDE7D9;
+
+  /* Color — accents */
+  --signal-500: #DAFE5D;
+  --signal-600: #B8DE3A;
+  --ember-500: #E85A4F;
+
+  /* Color — stone (warm neutrals) */
+  --stone-50:  #F0ECE3;
+  --stone-100: #E2DCCE;
+  --stone-200: #CAC2B0;
+  --stone-300: #A39B89;
+  --stone-500: #6E6757;
+  --stone-700: #403B30;
+
+  /* Color — semantic */
+  --success: #3F8F5C;
+  --warning: #D89A2E;
+  --danger:  #C7372F;
+  --info:    #4A6FA5;
+
+  /* Type families */
+  --font-display: "Fraunces", "Iowan Old Style", Georgia, serif;
+  --font-sans:    "Geist", ui-sans-serif, system-ui, sans-serif;
+  --font-mono:    "Geist Mono", ui-monospace, "SF Mono", monospace;
+
+  /* Type scale (size / line-height pairs) */
+  --text-display-2xl: 76px / 80px;
+  --text-display-xl:  60px / 64px;
+  --text-display-lg:  48px / 52px;
+  --text-heading-xl:  36px / 42px;
+  --text-heading-lg:  28px / 34px;
+  --text-heading-md:  22px / 28px;
+  --text-heading-sm:  18px / 26px;
+  --text-body-lg:     18px / 28px;
+  --text-body-md:     16px / 24px;
+  --text-body-sm:     14px / 20px;
+  --text-caption:     12px / 16px;
+  --text-mono-md:     14px / 22px;
+  --text-mono-sm:     12px / 18px;
+
+  /* Surface aliases — every selector consumes these so dark mode can swap
+     them in one block. --surface sits one elevation above --bg (cards,
+     inputs, status containers) so dark mode can still imply layering. */
+  --bg:        var(--paper-50);
+  --surface:   var(--paper-50);
+  --fg:        var(--ink-900);
+  --fg-muted:  var(--stone-500);
+  --border:    var(--stone-100);
+  --accent:    var(--signal-500);
+  --accent-fg: var(--ink-900);
+
+  /* Motion */
+  --motion-pulse-duration: 1.5s;
+}
+
+/* Dark mode overrides — surface aliases only. The signal accent stays
+   chartreuse-on-ink in both themes per FR-013. --surface is elevated to
+   ink-700 so cards layer visibly against the ink-900 body. */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg:       var(--ink-900);
+    --surface:  var(--ink-700);
+    --fg:       var(--paper-50);
+    --fg-muted: var(--stone-300);
+    --border:   var(--ink-700);
+  }
+}
+
+/* Manual theme override — the toggle in the header sets data-theme on
+   <html> to "light" or "dark"; "system" clears the attribute so the
+   @media block above takes over. */
+[data-theme="dark"] {
+  --bg:       var(--ink-900);
+  --surface:  var(--ink-700);
+  --fg:       var(--paper-50);
+  --fg-muted: var(--stone-300);
+  --border:   var(--ink-700);
+}
+
+[data-theme="light"] {
+  --bg:       var(--paper-50);
+  --surface:  var(--paper-50);
+  --fg:       var(--ink-900);
+  --fg-muted: var(--stone-500);
+  --border:   var(--stone-100);
+}
+
+body {
+  font-family: var(--font-sans);
+  font-size: 16px;
+  line-height: 24px;
+  letter-spacing: 0;
+  color: var(--fg);
+  background: var(--bg);
+  margin: 0;
+  padding: 0;
+}
+
+header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1.5rem 2rem 0.75rem;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg);
+}
+
+.header-titles {
+  flex: 1;
+  min-width: 0;
+}
+
+/* Theme toggle — cycles system → light → dark → system. Only one is
+   highlighted at a time; the rest are muted. */
+.theme-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0;
+  padding: 2px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface);
+  font-family: var(--font-sans);
+}
+
+.theme-toggle-option {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 28px;
+  padding: 0;
+  border: none;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--fg-muted);
+  cursor: pointer;
+  font-size: 14px;
+  line-height: 1;
+  transition: background-color 0.12s ease, color 0.12s ease;
+}
+
+.theme-toggle-option:hover {
+  color: var(--fg);
+}
+
+.theme-toggle-option[aria-pressed="true"] {
+  background: var(--accent);
+  color: var(--accent-fg);
+}
+
+.theme-toggle-option:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 35%, transparent);
+}
+
+.theme-toggle-option svg {
+  display: block;
+  width: 16px;
+  height: 16px;
+}
+
+header h1 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 28px;
+  line-height: 34px;
+  font-weight: 500;
+  font-variation-settings: "opsz" 36;
+  letter-spacing: -0.02em;
+  color: var(--fg);
+}
+
+.subtitle {
+  margin: 0.25rem 0 1rem;
+  font-family: var(--font-sans);
+  color: var(--fg-muted);
+  font-size: 16px;
+  line-height: 24px;
+  max-inline-size: 68ch;
+}
+
+main {
+  max-width: 760px;
+  margin: 2rem auto;
+  padding: 0 1.5rem;
+}
+
+/* Screen-reader-only label — keeps the form semantic without showing
+   the label visually (the textarea has a placeholder). */
+.sr-label {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* --- Forms --------------------------------------------------------------- */
+
+form {
+  margin-bottom: 1.5rem;
+}
+
+form[hx-post="/ui/query"] {
+  background: transparent;
+  border: none;
+  padding: 0;
+}
+
+/* --- Input group (textarea + paperclip + Ask button) -------------------- */
+
+.input-group {
+  display: flex;
+  /* Keep the Ask button + paperclip pinned to the top when the textarea
+     auto-grows past one line, so the controls don't dance vertically. */
+  align-items: flex-start;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  box-shadow: 0 1px 2px color-mix(in srgb, var(--fg) 6%, transparent);
+  overflow: hidden;
+  transition: border-color 0.12s ease, box-shadow 0.12s ease;
+}
+
+.input-group:focus-within {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 35%, transparent);
+}
+
+.input-group textarea {
+  flex: 1;
+  min-width: 0;
+  border: none;
+  outline: none;
+  resize: none;
+  font-family: var(--font-sans);
+  font-size: 16px;
+  line-height: 24px;
+  color: var(--fg);
+  padding: 0.5rem 1rem;
+  background: transparent;
+  height: 38px;          /* single-line default — matches .btn-ask height */
+  max-height: 168px;     /* ~6 rows; autosize JS caps growth here */
+  overflow-y: auto;
+  /* Hide the scrollbar UI (arrows + track) but keep scrolling functional
+     when content exceeds max-height. The autosize JS already prevents the
+     scrollbar from being needed until the user has typed past ~6 rows. */
+  scrollbar-width: none; /* Firefox */
+}
+.input-group textarea::-webkit-scrollbar {
+  display: none; /* Chrome, Safari, Edge */
+}
+
+.input-group textarea::placeholder {
+  color: var(--fg-muted);
+}
+
+.input-group-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.5rem 0.5rem 0;
+  border-left: 1px solid var(--border);
+  background: transparent;
+}
+
+.paperclip-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  padding: 0;
+  margin: 0;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--fg-muted);
+  cursor: pointer;
+  transition: background-color 0.12s ease, color 0.12s ease, border-color 0.12s ease;
+}
+
+.paperclip-btn:hover {
+  background: color-mix(in srgb, var(--signal-500) 12%, transparent);
+  color: var(--ink-900);
+  border-color: color-mix(in srgb, var(--signal-500) 30%, transparent);
+}
+
+.paperclip-btn:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 35%, transparent);
+  border-color: var(--accent);
+  color: var(--ink-900);
+}
+
+.paperclip-btn svg {
+  display: block;
+}
+
+.btn-ask {
+  font-family: var(--font-sans);
+  font-size: 16px;
+  line-height: 24px;
+  font-weight: 600;
+  letter-spacing: 0;
+  padding: 0 1.25rem;
+  height: 38px;
+  border: none;
+  border-radius: 8px;
+  background: var(--accent);
+  color: var(--accent-fg);
+  cursor: pointer;
+  transition: background-color 0.12s ease;
+}
+
+.btn-ask:hover { background: var(--signal-600); }
+.btn-ask:disabled { background: var(--stone-200); color: var(--fg-muted); cursor: not-allowed; }
+
+.btn-ask:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 35%, transparent);
+}
+
+.form-meta {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 0.5rem;
+  min-height: 1.25rem;
+}
+
+/* --- Current-document indicator ------------------------------------------ */
+
+#current-doc {
+  margin-bottom: 1.25rem;
+}
+
+.current-doc-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 0.75rem 1rem;
+  box-shadow: 0 1px 2px color-mix(in srgb, var(--fg) 6%, transparent);
+}
+
+.current-doc-info {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 0.4rem 0.75rem;
+  min-width: 0;
+}
+
+.current-doc-label {
+  font-family: var(--font-sans);
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 500;
+  color: var(--fg-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.current-doc-name {
+  font-family: var(--font-sans);
+  font-weight: 600;
+  color: var(--fg);
+  text-decoration: none;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 480px;
+}
+
+.current-doc-meta {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  line-height: 18px;
+  color: var(--fg-muted);
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "ss01", "zero", "cv11";
+}
+
+.current-doc-empty {
+  background: var(--surface);
+  border: 1px dashed var(--stone-300);
+  border-radius: 10px;
+  padding: 0.75rem 1rem;
+  color: var(--fg-muted);
+  font-family: var(--font-sans);
+  font-size: 14px;
+  line-height: 20px;
+}
+
+.btn-clear {
+  font-family: var(--font-sans);
+  font-size: 14px;
+  line-height: 20px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  padding: 0.4rem 0.85rem;
+  border: 1px solid var(--danger);
+  border-radius: 8px;
+  background: transparent;
+  color: var(--danger);
+  cursor: pointer;
+  transition: background-color 0.12s ease, color 0.12s ease;
+  white-space: nowrap;
+}
+
+.btn-clear:hover {
+  background: var(--danger);
+  color: var(--bg);
+}
+
+.btn-clear:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--danger) 20%, transparent);
+}
+
+/* --- HTMX in-flight indicator (pulsing single line) ---------------------- */
+
+.htmx-indicator {
+  display: none;
+  color: var(--signal-600);
+  font-family: var(--font-sans);
+  font-size: 18px;
+  line-height: 28px;
+  font-weight: 500;
+  letter-spacing: 0;
+}
+.htmx-request .htmx-indicator,
+.htmx-request.htmx-indicator {
+  display: inline;
+  animation: nymbl-pulse var(--motion-pulse-duration) ease-in-out infinite;
+}
+
+@keyframes nymbl-pulse {
+  0%, 100% { opacity: 0.45; }
+  50%      { opacity: 1; }
+}
+
+/* --- Upload progress card ----------------------------------------------- */
+
+.upload-progress {
+  border-left-color: var(--stone-700);
+}
+
+.badge-upload-pending {
+  background: color-mix(in srgb, var(--stone-700) 12%, var(--surface));
+  color: var(--stone-700);
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.upload-progress-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.upload-progress-filename {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  line-height: 18px;
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "ss01", "zero", "cv11";
+  color: var(--fg-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 360px;
+}
+
+/* Spinner sits inside the active-stage badge; inherits the text color via
+   currentColor so it follows the badge rebrand automatically. */
+.upload-spinner {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 50%;
+  animation: upload-spin 0.8s linear infinite;
+}
+
+@keyframes upload-spin {
+  0%   { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.upload-progress-stages {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  margin: 0.5rem 0 0.75rem;
+  flex-wrap: wrap;
+}
+
+.upload-progress-stage {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.25rem 0.65rem 0.25rem 0.4rem;
+  flex: 1 1 0;
+  min-width: 0;
+  position: relative;
+}
+
+.upload-progress-stage:not(:last-child)::after {
+  content: "";
+  position: absolute;
+  right: -2px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 4px;
+  height: 4px;
+  background: var(--border);
+  border-radius: 50%;
+}
+
+.upload-progress-stage-dot {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--bg);
+  border: 1.5px solid var(--border);
+  color: var(--fg-muted);
+  font-size: 0.8rem;
+  font-weight: 700;
+  line-height: 1;
+  transition: background-color 0.18s, border-color 0.18s, color 0.18s;
+}
+
+.upload-progress-stage-label {
+  font-family: var(--font-sans);
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--fg-muted);
+  transition: color 0.18s;
+}
+
+.upload-progress-stage--done .upload-progress-stage-dot {
+  background: var(--success);
+  border-color: var(--success);
+  color: var(--accent-fg);
+}
+.upload-progress-stage--done .upload-progress-stage-label {
+  color: var(--success);
+}
+
+.upload-progress-stage--active .upload-progress-stage-dot {
+  background: var(--signal-500);
+  border-color: var(--signal-600);
+  color: var(--ink-900);
+  animation: upload-stage-pulse 1.2s ease-in-out infinite;
+}
+.upload-progress-stage--active .upload-progress-stage-label {
+  color: var(--stone-700);
+}
+
+.upload-progress-stage--pending .upload-progress-stage-dot {
+  border-color: var(--stone-200);
+  color: var(--stone-300);
+}
+.upload-progress-stage--pending .upload-progress-stage-label {
+  color: var(--stone-300);
+}
+
+@keyframes upload-stage-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--signal-500) 35%, transparent); }
+  50%      { box-shadow: 0 0 0 6px color-mix(in srgb, var(--signal-500)  0%, transparent); }
+}
+
+.upload-progress-message {
+  font-family: var(--font-sans);
+  font-size: 16px;
+  line-height: 24px;
+  color: var(--fg);
+  margin: 0.25rem 0;
+  max-inline-size: 68ch;
+}
+
+.upload-progress-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 0.5rem;
+}
+
+.upload-progress-empty {
+  color: var(--fg-muted);
+  font-family: var(--font-sans);
+  font-size: 14px;
+  line-height: 20px;
+  padding: 0.5rem 0;
+}
+
+/* Reduced-motion: suppress animations for users who request it.
+   Static line + static stage dot still convey the same information. */
+@media (prefers-reduced-motion: reduce) {
+  .htmx-request .htmx-indicator,
+  .htmx-request.htmx-indicator,
+  .upload-progress-stage--active .upload-progress-stage-dot {
+    animation: none;
+    opacity: 1;
+  }
+}
+
+/* --- Response cards (visually distinct per spec FR-020) ------------------ */
+
+.status-card {
+  background: var(--surface);
+  border-left: 6px solid var(--fg-muted);
+  border-radius: 8px;
+  padding: 1rem 1.25rem;
+  margin-bottom: 1rem;
+  box-shadow: 0 1px 2px color-mix(in srgb, var(--fg) 6%, transparent);
+}
+
+.status-answered { border-left-color: var(--success); }
+.status-refused  { border-left-color: var(--ember-500); }
+.status-empty    { border-left-color: var(--info); }
+.status-error    { border-left-color: var(--danger); }
+.status-upload         { border-left-color: var(--stone-700); }
+.status-upload-error   { border-left-color: var(--danger); }
+
+.status-heading {
+  font-family: var(--font-display);
+  font-size: 22px;
+  line-height: 28px;
+  font-weight: 500;
+  font-variation-settings: "opsz" 24;
+  letter-spacing: -0.01em;
+  margin: 0.25rem 0 0.5rem;
+  color: var(--fg);
+}
+
+.btn-retry {
+  display: inline-block;
+  margin-top: 0.5rem;
+  font-family: var(--font-sans);
+  font-size: 14px;
+  line-height: 20px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  padding: 0.4rem 0.85rem;
+  border: 1px solid var(--fg);
+  border-radius: 8px;
+  background: transparent;
+  color: var(--fg);
+  cursor: pointer;
+  transition: background-color 0.12s ease, color 0.12s ease;
+}
+
+.btn-retry:hover {
+  background: var(--fg);
+  color: var(--bg);
+}
+
+.btn-retry:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 35%, transparent);
+}
+
+.badge {
+  display: inline-block;
+  font-family: var(--font-sans);
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 0.15rem 0.5rem;
+  border-radius: 3px;
+  margin-bottom: 0.5rem;
+}
+
+.badge-answered { background: color-mix(in srgb, var(--success) 14%, var(--surface)); color: var(--success); }
+.badge-refused  { background: color-mix(in srgb, var(--ember-500) 14%, var(--surface)); color: var(--ember-500); }
+.badge-empty    { background: color-mix(in srgb, var(--info) 14%, var(--surface)); color: var(--info); }
+.badge-error    { background: color-mix(in srgb, var(--danger) 14%, var(--surface)); color: var(--danger); }
+.badge-upload         { background: color-mix(in srgb, var(--stone-700) 14%, var(--surface)); color: var(--stone-700); }
+.badge-upload-error   { background: color-mix(in srgb, var(--danger) 14%, var(--surface)); color: var(--danger); }
+
+.answer {
+  font-family: var(--font-sans);
+  font-size: 18px;
+  line-height: 28px;
+  margin: 0.5rem 0 1rem;
+  color: var(--fg);
+  max-inline-size: 68ch;
+}
+
+.refusal-message {
+  margin: 0.25rem 0;
+  font-family: var(--font-sans);
+  color: var(--fg);
+  max-inline-size: 68ch;
+}
+.refusal-cause-meta { margin: 0.5rem 0 0; color: var(--fg-muted); }
+
+.upload-meta { color: var(--fg-muted); font-family: var(--font-sans); font-size: 14px; line-height: 20px; margin: 0.25rem 0 0; }
+
+/* --- Citations ----------------------------------------------------------- */
+
+h3 {
+  font-family: var(--font-sans);
+  font-size: 12px;
+  line-height: 16px;
+  margin: 1rem 0 0.5rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  font-weight: 500;
+  color: var(--fg-muted);
+}
+
+.citations {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.citation {
+  border-top: 1px solid var(--border);
+  padding: 0.75rem 0;
+}
+
+.page-badge {
+  display: inline-block;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  line-height: 18px;
+  font-weight: 400;
+  background: color-mix(in srgb, var(--accent) 20%, var(--surface));
+  color: var(--ink-900);
+  padding: 0.1rem 0.5rem;
+  border-radius: 3px;
+  margin-right: 0.5rem;
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "ss01", "zero", "cv11";
+}
+
+blockquote {
+  border-left: 3px solid var(--border);
+  margin: 0.5rem 0;
+  padding: 0.25rem 0.75rem;
+  color: var(--fg-muted);
+  font-family: var(--font-sans);
+  max-inline-size: 68ch;
+}
+
+.truncated { color: var(--fg-muted); font-family: var(--font-sans); font-size: 14px; line-height: 20px; }
+
+.chunk-id {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  line-height: 18px;
+  color: var(--fg-muted);
+  font-feature-settings: "ss01", "zero", "cv11";
+}
+
+pre {
+  background: var(--paper-100);
+  padding: 0.75rem;
+  border-radius: 4px;
+  overflow-x: auto;
+  font-family: var(--font-mono);
+}
+code {
+  font-family: var(--font-mono);
+  font-size: 14px;
+  line-height: 22px;
+}
+
+footer {
+  max-width: 760px;
+  margin: 2rem auto;
+  padding: 1rem 1.5rem;
+  font-family: var(--font-sans);
+  color: var(--fg-muted);
+  font-size: 14px;
+  line-height: 20px;
+  text-align: center;
+}
+
+footer a {
+  color: var(--fg);
+  text-decoration: underline;
+  text-decoration-color: var(--signal-600);
+}
+footer a:hover { text-decoration-color: var(--accent); color: var(--fg); }
+
+/* Dark mode tweaks beyond the surface-alias swap. */
+@media (prefers-color-scheme: dark) {
+  .htmx-indicator { color: var(--signal-500); }
+  .status-card { box-shadow: 0 1px 2px color-mix(in srgb, var(--ink-900) 40%, transparent); }
+  pre { background: var(--ink-700); }
+}

@@ -1,0 +1,228 @@
+openapi: 3.0.3
+info:
+  title: RAG Query API
+  version: 0.2.0
+  description: |
+    JSON query path delivered by feature 002. The endpoint exercises the same
+    underlying query function as the HTMX UI route (POST /ui/query) and the
+    `rag query` CLI; this is the surface programmatic consumers (curl, eval
+    harness, future automation) hit.
+
+    Three terminal `status` values are possible: `answered`, `refused`,
+    `no_documents`. Spec FR-013 makes "answered ↔ ≥1 citation" and
+    "refused ↔ 0 citations" structural invariants — see the schema's `oneOf`
+    discriminator below.
+
+paths:
+  /query:
+    post:
+      operationId: query
+      summary: Ask a question over the ingested PDF corpus.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/QueryRequest"
+      responses:
+        "200":
+          description: |
+            Successful query. Body is one of QueryAnswered, QueryRefused, or
+            QueryNoDocuments distinguished by the `status` field.
+          headers:
+            X-RAG-Trace-Id:
+              description: |
+                The trace_id assigned at the entry point and propagated through
+                retrieve → generate → judge → respond. Matches every JSON log
+                line for this request.
+              schema:
+                type: string
+                format: uuid
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/QueryResponse"
+        "400":
+          description: |
+            Bad request. Returned when the question is empty/whitespace-only or
+            exceeds the configured length cap. The body names the violation.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "503":
+          description: |
+            An upstream model call failed (Gemini File API, embedding,
+            generation, or the grounding judge). The body names the upstream
+            and the underlying error. Per spec FR-016, upstream failures
+            MUST NOT be masked as refusals — clients can distinguish "no
+            answer because the model said so" (200 + refused) from "no
+            answer because the model could not be reached" (503).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+components:
+  schemas:
+    QueryRequest:
+      type: object
+      additionalProperties: false
+      required: [question]
+      properties:
+        question:
+          type: string
+          minLength: 1
+          maxLength: 1000
+          description: |
+            The user's natural-language question. Length capped to keep prompt
+            assembly predictable and to prevent denial-of-API attempts at
+            embedding time.
+        top_k:
+          type: integer
+          minimum: 1
+          maximum: 20
+          description: |
+            Per-request override for the retrieval top-k. Defaults to
+            RAG_TOP_K (5). Intended for debugging and the eval harness — not
+            exposed in the UI.
+
+    QueryResponse:
+      oneOf:
+        - $ref: "#/components/schemas/QueryAnswered"
+        - $ref: "#/components/schemas/QueryRefused"
+        - $ref: "#/components/schemas/QueryNoDocuments"
+      discriminator:
+        propertyName: status
+        mapping:
+          answered: "#/components/schemas/QueryAnswered"
+          refused: "#/components/schemas/QueryRefused"
+          no_documents: "#/components/schemas/QueryNoDocuments"
+
+    QueryAnswered:
+      type: object
+      additionalProperties: false
+      required: [status, answer, citations, model, trace_id]
+      properties:
+        status:
+          type: string
+          enum: [answered]
+        answer:
+          type: string
+          minLength: 1
+        citations:
+          type: array
+          minItems: 1
+          items:
+            $ref: "#/components/schemas/Citation"
+        model:
+          type: string
+          description: |
+            Identifier of the generation model that produced the answer.
+            Typically "gemini-2.5-flash" (constitution Art IV.6).
+        trace_id:
+          type: string
+          format: uuid
+          description: |
+            Echoed in body and X-RAG-Trace-Id header for ease of
+            log-correlation during the demo.
+
+    QueryRefused:
+      type: object
+      additionalProperties: false
+      required: [status, message, refusal_cause, model, trace_id]
+      properties:
+        status:
+          type: string
+          enum: [refused]
+        message:
+          type: string
+          description: |
+            Human-readable refusal text. The UI renders this verbatim in the
+            refusal-state template.
+          example: "I don't know — that information is not in the ingested document."
+        refusal_cause:
+          type: string
+          enum: [low_similarity, failed_grounding_check, judge_no_supporting_spans]
+          description: |
+            Internal cause classification. `low_similarity` means the cosine
+            pre-filter (RAG_SIM_FLOOR) found no candidates; `failed_grounding_check`
+            means the LLM-as-judge returned entailed=false; `judge_no_supporting_spans`
+            means the judge returned entailed=true but pointed at no sentences
+            (R-016 degenerate-verdict recovery).
+        model:
+          type: string
+          description: |
+            Identifier of the model that produced the refusal verdict. When
+            refusal_cause is "low_similarity" this is the embedding model; for
+            the two judge causes it is the grounding-judge model.
+        trace_id:
+          type: string
+          format: uuid
+        # Note: NO `citations` field on refused responses — its absence is the
+        # invariant. Schemas in additionalProperties:false mode reject a
+        # citations key on a refused response.
+
+    QueryNoDocuments:
+      type: object
+      additionalProperties: false
+      required: [status, message, trace_id]
+      properties:
+        status:
+          type: string
+          enum: [no_documents]
+        message:
+          type: string
+          description: |
+            Explains that the corpus is empty and names the ingest command.
+          example: "No documents have been ingested. Run `rag ingest <path-to-pdf>` first."
+        trace_id:
+          type: string
+          format: uuid
+
+    Citation:
+      type: object
+      additionalProperties: false
+      required: [chunk_id, source_document_id, page_number, quoted_span]
+      properties:
+        chunk_id:
+          type: string
+          format: uuid
+          description: The stable chunk identifier (chunk.id in the schema).
+        source_document_id:
+          type: string
+          format: uuid
+        page_number:
+          type: integer
+          minimum: 1
+        quoted_span:
+          type: string
+          minLength: 1
+          maxLength: 401   # 400 + one ellipsis char per R-016
+          description: |
+            Verbatim text the answer drew on. Length-capped at 400 chars with a
+            single ellipsis appended on truncation (R-016). The quoted text is
+            verifiable by opening the source PDF to page_number.
+        truncated:
+          type: boolean
+          description: |
+            True iff the quoted_span was truncated at the 400-char cap. The
+            UI may render a visual cue when truncated, but its absence does
+            not imply the chunk's full text.
+
+    Error:
+      type: object
+      additionalProperties: false
+      required: [error, trace_id]
+      properties:
+        error:
+          type: string
+          description: |
+            Short machine-readable error code (e.g., "empty_question",
+            "question_too_long", "upstream_gemini", "upstream_judge").
+        message:
+          type: string
+          description: Human-readable details.
+        trace_id:
+          type: string
+          format: uuid

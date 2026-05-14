@@ -1,0 +1,38 @@
+<div id="upload-progress-{{ task_id }}"
+     class="status-card status-upload-pending upload-progress"
+     aria-live="polite"
+     hx-get="/ui/upload/status/{{ task_id }}"
+     hx-trigger="every 500ms"
+     hx-swap="outerHTML"
+     hx-target="this"
+     data-stage="{{ stage }}">
+  <div class="upload-progress-head">
+    <span class="badge badge-upload-pending">
+      <span class="upload-spinner" aria-hidden="true"></span>
+      Uploading
+    </span>
+    <span class="upload-progress-filename">{{ filename }}</span>
+  </div>
+  <div class="upload-progress-stages">
+    {# `stages_view` is pre-computed in the route (rag.ui.routes._stages_view).
+       Each entry has `label`, `state` (`done` / `active` / `pending`), and
+       `dot` (the glyph to render in the dot). #}
+    {% for s in stages_view %}
+      <div class="upload-progress-stage upload-progress-stage--{{ s.state }}">
+        <span class="upload-progress-stage-dot">{{ s.dot|safe }}</span>
+        <span class="upload-progress-stage-label">{{ s.label }}</span>
+      </div>
+    {% endfor %}
+  </div>
+  <div class="upload-progress-message">{{ stage_message }}</div>
+  <div class="upload-progress-actions">
+    <button class="btn-clear"
+            type="button"
+            hx-post="/ui/upload/cancel/{{ task_id }}"
+            hx-target="#upload-progress-{{ task_id }}"
+            hx-swap="outerHTML"
+            hx-confirm="Cancel the upload?">
+      Cancel upload
+    </button>
+  </div>
+</div>

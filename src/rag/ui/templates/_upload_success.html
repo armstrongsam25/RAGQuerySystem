@@ -1,0 +1,21 @@
+<div class="status-card status-upload">
+  <span class="badge badge-upload">Upload complete</span>
+  <p>
+    Replaced previous document with <strong>{{ pdf_name }}</strong>.
+  </p>
+  <p class="upload-meta">
+    {{ chunks_inserted }} chunk{% if chunks_inserted != 1 %}s{% endif %}
+    indexed across {{ pages }} page{% if pages != 1 %}s{% endif %}
+    in {{ elapsed_s }} s.
+  </p>
+  <p class="upload-meta">You can now ask a question about this document.</p>
+</div>
+
+{# Out-of-band swap: refresh the page-top #current-doc indicator without
+   a page reload. hx-swap-oob="innerHTML" replaces the existing
+   #current-doc's inner content with this wrapper's inner content. #}
+<div id="current-doc" hx-swap-oob="innerHTML">
+  {% include "_current_doc.html" %}
+</div>
+
+<!-- trace_id: {{ trace_id }} -->

@@ -1,0 +1,69 @@
+{# Query-path error card. Visible copy is restricted to fixed category
+   strings per the 2026-05-13 clarify decision (see
+   contracts/error-rendering.md). No raw backend text reaches the UI;
+   the cause/message stays in the server-side log trail only. #}
+<div class="status-card status-error" role="alert">
+  {% if category == "server" %}
+    <span class="badge badge-error">Server error</span>
+    <h3 class="status-heading">Server error</h3>
+    <p>Something went wrong on our end. Please try again.</p>
+    <button class="btn-retry"
+            type="button"
+            hx-post="/ui/query"
+            hx-include="closest form, [name=question]"
+            hx-target="#response"
+            hx-swap="innerHTML">
+      Retry
+    </button>
+  {% elif category == "validation" %}
+    <span class="badge badge-error">Invalid input</span>
+    <h3 class="status-heading">Invalid input</h3>
+    <p>We couldn't process that request. Please review and try again.</p>
+    <button class="btn-retry"
+            type="button"
+            hx-post="/ui/query"
+            hx-include="closest form, [name=question]"
+            hx-target="#response"
+            hx-swap="innerHTML">
+      Retry
+    </button>
+  {% elif category == "network" %}
+    <span class="badge badge-error">Network error</span>
+    <h3 class="status-heading">Network error</h3>
+    <p>Couldn't reach the server. Check your connection and try again.</p>
+    <button class="btn-retry"
+            type="button"
+            hx-post="/ui/query"
+            hx-include="closest form, [name=question]"
+            hx-target="#response"
+            hx-swap="innerHTML">
+      Retry
+    </button>
+  {% elif category == "rate_limited" %}
+    <span class="badge badge-error">Service busy</span>
+    <h3 class="status-heading">Service busy</h3>
+    <p>We're hitting upstream rate limits. Please wait a moment and try again.</p>
+    <button class="btn-retry"
+            type="button"
+            hx-post="/ui/query"
+            hx-include="closest form, [name=question]"
+            hx-target="#response"
+            hx-swap="innerHTML">
+      Retry
+    </button>
+  {% else %}
+    {# Defensive default — any uncategorized error reads as a server error. #}
+    <span class="badge badge-error">Server error</span>
+    <h3 class="status-heading">Server error</h3>
+    <p>Something went wrong on our end. Please try again.</p>
+    <button class="btn-retry"
+            type="button"
+            hx-post="/ui/query"
+            hx-include="closest form, [name=question]"
+            hx-target="#response"
+            hx-swap="innerHTML">
+      Retry
+    </button>
+  {% endif %}
+</div>
+<!-- trace_id: {{ trace_id }} -->

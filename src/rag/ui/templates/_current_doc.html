@@ -1,0 +1,34 @@
+{# Inner content of the page-top #current-doc indicator. The wrapping
+   <div id="current-doc"> lives in base.html; this partial provides only
+   the inner content so HTMX innerHTML swaps (from GET /ui/current-doc,
+   POST /ui/clear, and the upload-success OOB region) work cleanly. #}
+{% if docs %}
+  {% for doc in docs %}
+  <div class="current-doc-card">
+    <div class="current-doc-info">
+      <span class="current-doc-label">Currently ingested:</span>
+      <span class="current-doc-name"
+            title="Filename only — the source PDF is not stored on the server.">
+        {{ doc.display_filename }}
+      </span>
+      <span class="current-doc-meta">
+        {{ doc.chunk_count }} chunk{% if doc.chunk_count != 1 %}s{% endif %} &middot;
+        {{ doc.page_count }} page{% if doc.page_count != 1 %}s{% endif %}
+      </span>
+    </div>
+    <button
+      class="btn-clear"
+      type="button"
+      hx-post="/ui/clear"
+      hx-target="#current-doc"
+      hx-swap="innerHTML"
+      hx-confirm="Clear the current document? This cannot be undone.">
+      Clear document
+    </button>
+  </div>
+  {% endfor %}
+{% else %}
+  <div class="current-doc-empty">
+    No document ingested yet. Click the paperclip to upload a PDF.
+  </div>
+{% endif %}
