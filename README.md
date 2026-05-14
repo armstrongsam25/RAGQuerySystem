@@ -24,16 +24,16 @@
 
 ```bash
 git clone <repo>
-cd NymblTechAssessment
+cd RAGQuerySystem
 
 # 1. Configure
-cp .env.example .env
-$EDITOR .env                              # fill GEMINI_API_KEY
+cp .env.example .env        # fill all fields
 
 # 2. Start a local OpenAI-compatible LLM on the host
 #    (LM Studio :1234, Ollama :11434, llama.cpp :8080 — any one)
+#    or use Google Gemini services.
 
-# 3. One-time: generate the sample PDF
+# 3. One-time: generate the sample PDF or use one of the curated PDFs in data/sample-pdfs/curated/.
 uv run python scripts/make_sample_pdf.py
 
 # 4. Bring the stack up
@@ -42,7 +42,7 @@ make up
 # 5. Ingest the sample
 make ingest
 -or-
-Upload any PDF on the UI.
+Upload any PDF in the frontend UI.
 
 # 6. Open the UI → http://localhost:8000/
 ```
