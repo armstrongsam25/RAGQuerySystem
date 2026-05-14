@@ -79,6 +79,29 @@ ignore = [
 [tool.ruff.format]
 quote-style = "double"
 
+# --- mypy -----------------------------------------------------------------
+# Constitution Art VI.3: type-hinted public surfaces. Strict mode is enabled
+# for the library; third-party SDKs without py.typed markers are silenced
+# at the import boundary so checking stays signal-rich.
+[tool.mypy]
+python_version = "3.12"
+strict = true
+files = ["src/rag"]
+explicit_package_bases = true
+mypy_path = "src"
+
+[[tool.mypy.overrides]]
+module = ["pgvector", "pgvector.*"]
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+# Gemini SDK contents= argument is typed as a deep union that disallows
+# bare list[str], but the SDK accepts it in practice and our prompt
+# helpers always serialize to str. Suppressing arg-type for the
+# provider boundary keeps the rest of the codebase strictly checked.
+module = ["rag.providers.gemini"]
+disable_error_code = ["arg-type"]
+
 # --- pytest ----------------------------------------------------------------
 [tool.pytest.ini_options]
 minversion = "8.0"

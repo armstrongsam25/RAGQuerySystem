@@ -51,7 +51,7 @@ class UploadJob:
     # Strong reference to the background ``asyncio.Task`` so it isn't
     # garbage-collected while running. Populated by the route after
     # ``asyncio.create_task``.
-    task: asyncio.Task | None = None
+    task: asyncio.Task[None] | None = None
 
     def set_progress(self, stage: str, message: str) -> None:
         """Update the job's stage + reviewer-readable message."""
