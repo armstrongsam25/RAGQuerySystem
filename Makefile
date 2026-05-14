@@ -43,7 +43,7 @@ reingest: ## Re-ingest the sample PDF, overwriting any prior state (--force).
 query: ## Ask a question. Usage: make query QUESTION='your question here'
 	docker compose exec app rag query "$(QUESTION)"
 
-eval: ## (stub) Run the eval set — delivered by feature 00X-eval-harness.
+eval: ## Run the eval set against the running stack and write evals/results.{jsonl,md}.
 	docker compose exec app rag eval
 
 serve: ## Run the FastAPI service via uvicorn directly (non-Docker dev).
