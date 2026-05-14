@@ -94,11 +94,11 @@ async def test_clear_wipes_corpus() -> None:
     async with httpx.AsyncClient(base_url=_BASE_URL, timeout=15.0) as client:
         r_clear = await client.post("/ui/clear")
         assert r_clear.status_code == 200
-        assert "No document ingested yet" in r_clear.text
+        assert "current-doc-card" not in r_clear.text
 
         r_indicator = await client.get("/ui/current-doc")
         assert r_indicator.status_code == 200
-        assert "No document ingested yet" in r_indicator.text
+        assert "current-doc-card" not in r_indicator.text
 
 
 @pytest.mark.asyncio

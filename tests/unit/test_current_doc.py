@@ -73,14 +73,14 @@ def _build_app(small_dim_settings, memory_repo, fake_upload_pool):
 def test_get_current_doc_empty_corpus_renders_empty_state(
     small_dim_settings, memory_repo, fake_upload_pool
 ):
+    """Empty corpus → partial emits no chip. The bottom bar shows only the input row."""
     app = _build_app(small_dim_settings, memory_repo, fake_upload_pool)
     with TestClient(app) as client:
         r = client.get("/ui/current-doc")
     assert r.status_code == 200
-    assert "No document ingested yet" in r.text
-    assert "current-doc-empty" in r.text
-    # No card rendered.
+    # No card / chip rendered when corpus is empty.
     assert "current-doc-card" not in r.text
+    assert "doc-chip" not in r.text
 
 
 def test_get_current_doc_populated_renders_filename_and_metadata(
@@ -92,9 +92,19 @@ def test_get_current_doc_populated_renders_filename_and_metadata(
         r = client.get("/ui/current-doc")
     assert r.status_code == 200
     assert "report.pdf" in r.text
-    assert "15 chunks" in r.text
-    assert "8 pages" in r.text
+    # Chip + Clear in the bar. Chunk/page counts are carried as data
+    # attributes on the chip; openDocModal() (in base.html) reads them
+    # and fills the static <dialog id="doc-info-modal"> on click.
     assert "current-doc-card" in r.text
+    assert "doc-chip" in r.text
+    assert 'data-filename="report.pdf"' in r.text
+    assert 'data-chunks="15"' in r.text
+    assert 'data-pages="8"' in r.text
+    # data-pdf-url is only set when the original PDF bytes are on disk;
+    # the in-memory fixture doesn't write that file, so the attribute
+    # renders as empty — verify it's present (so openDocModal handles
+    # both states) without asserting a specific URL.
+    assert "data-pdf-url=" in r.text
     # Clear button + native confirm.
     assert 'hx-post="/ui/clear"' in r.text
     assert "hx-confirm=" in r.text
@@ -110,7 +120,9 @@ def test_post_clear_wipes_and_returns_empty_state(
     with TestClient(app) as client:
         r = client.post("/ui/clear")
     assert r.status_code == 200
-    assert "No document ingested yet" in r.text
+    # No chip after wipe; OOB chat-thread reset still emitted.
+    assert "current-doc-card" not in r.text
+    assert 'id="chat-thread"' in r.text
     # Corpus is empty after wipe.
     assert len(memory_repo._docs) == 0
     assert len(memory_repo._chunks) == 0
@@ -123,19 +135,18 @@ def test_post_clear_on_already_empty_is_idempotent(
     with TestClient(app) as client:
         r = client.post("/ui/clear")
     assert r.status_code == 200
-    assert "No document ingested yet" in r.text
+    assert "current-doc-card" not in r.text
     assert len(memory_repo._docs) == 0
 
 
-def test_get_current_doc_singular_vs_plural_units(
+def test_get_current_doc_carries_counts_as_data_attributes(
     small_dim_settings, memory_repo, fake_upload_pool
 ):
-    """Cosmetic: '1 chunk' (singular) vs '2 chunks' (plural) for chunk_count == 1."""
+    """Counts ride on data-chunks / data-pages; openDocModal() formats them
+    (singular vs plural) client-side when filling the static modal in base.html."""
     _seed_doc(memory_repo, file_hash="h1", filename="one-pager.pdf", chunk_count=1, page_count=1)
     app = _build_app(small_dim_settings, memory_repo, fake_upload_pool)
     with TestClient(app) as client:
         r = client.get("/ui/current-doc")
-    assert "1 chunk" in r.text
-    assert "1 chunks" not in r.text  # no plural-s when count == 1
-    assert "1 page" in r.text
-    assert "1 pages" not in r.text
+    assert 'data-chunks="1"' in r.text
+    assert 'data-pages="1"' in r.text

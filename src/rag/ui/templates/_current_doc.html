@@ -1,51 +1,50 @@
-{# Inner content of the sidebar #current-doc indicator. The wrapping
-   <div id="current-doc"> lives in base.html; this partial provides only
-   the inner content so HTMX innerHTML swaps (from GET /ui/current-doc,
-   POST /ui/clear, and the upload-success OOB region) work cleanly.
+{# Inner content of the #current-doc swap target (defined in base.html).
+   Renders the compact file chip + Clear button. On empty corpus the
+   partial emits nothing — the bottom bar simply shows the input row.
 
-   When ``clear_chat`` is truthy in the context (POST /ui/clear), this
-   template also emits an OOB swap that wipes #chat-thread back to its
-   empty state — explicit "Clear document" is a fresh-slate action. #}
+   HTMX targets (preserved):
+   - GET /ui/current-doc on page load → innerHTML swap into #current-doc.
+   - POST /ui/clear (from the Clear button) → innerHTML swap into #current-doc.
+   - Upload success OOB (_upload_success.html) → innerHTML swap into #current-doc.
+
+   The .current-doc-card class is preserved so maybeConfirmReplace() in
+   base.html still detects "has document". The <dialog id="doc-info-modal">
+   lives statically in base.html — the chip carries data-* attributes that
+   openDocModal() reads to fill it before opening. #}
 {% if docs %}
   {% for doc in docs %}
+  {% set pdf_url = '/ui/pdf/' ~ doc.file_hash if doc.file_hash and doc.file_hash in pdf_available_hashes else '' %}
   <div class="current-doc-card">
-    <div class="current-doc-info">
-      <span class="current-doc-label">Currently ingested:</span>
-      {# Render as a link only when the original PDF bytes are on disk
-         (file_hash present AND in pdf_available_hashes set computed by
-         the route). Otherwise show plain text so a missing-file row
-         doesn't surface a dead /ui/pdf/{hash} link. #}
-      {% if doc.file_hash and doc.file_hash in pdf_available_hashes %}
-        <a class="current-doc-name current-doc-link"
-           href="/ui/pdf/{{ doc.file_hash }}"
-           target="_blank"
-           rel="noopener"
-           title="Open the original PDF in a new tab">
-          {{ doc.display_filename }}
-        </a>
-      {% else %}
-        <span class="current-doc-name">{{ doc.display_filename }}</span>
-      {% endif %}
-      <span class="current-doc-meta">
-        {{ doc.chunk_count }} chunk{% if doc.chunk_count != 1 %}s{% endif %} &middot;
-        {{ doc.page_count }} page{% if doc.page_count != 1 %}s{% endif %}
-      </span>
-    </div>
     <button
-      class="btn-clear"
+      type="button"
+      class="doc-chip"
+      aria-haspopup="dialog"
+      aria-controls="doc-info-modal"
+      data-filename="{{ doc.display_filename }}"
+      data-pdf-url="{{ pdf_url }}"
+      data-chunks="{{ doc.chunk_count }}"
+      data-pages="{{ doc.page_count }}"
+      onclick="openDocModal(this)">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
+           stroke="currentColor" stroke-width="2"
+           stroke-linecap="round" stroke-linejoin="round" width="16" height="16"
+           aria-hidden="true">
+        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+        <polyline points="14 2 14 8 20 8"></polyline>
+      </svg>
+      <span class="doc-chip-name">{{ doc.display_filename }}</span>
+    </button>
+    <button
+      class="btn-clear btn-clear-icon"
       type="button"
       hx-post="/ui/clear"
       hx-target="#current-doc"
       hx-swap="innerHTML"
       hx-confirm="Clear the current document? This will also clear the chat history.">
-      Clear document
+      Clear
     </button>
   </div>
   {% endfor %}
-{% else %}
-  <div class="current-doc-empty">
-    No document ingested yet. Click the paperclip to upload a PDF.
-  </div>
 {% endif %}
 
 {% if clear_chat %}

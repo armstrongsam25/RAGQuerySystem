@@ -319,8 +319,13 @@ class GeminiProvider:
 
         raw = await _with_retry("judge", _call, timeout_s=_TIMEOUT_JUDGE_S)
 
+        # raw_decode (not json.loads) tolerates trailing content after the
+        # first JSON value. Gemini occasionally emits a second object or
+        # repeated reasoning on a new line even with
+        # response_mime_type="application/json"; the first object is the
+        # verdict and _parse_verdict validates it defensively.
         try:
-            payload = json.loads(raw)
+            payload, _ = json.JSONDecoder().raw_decode(raw.strip())
         except json.JSONDecodeError as exc:
             raise UpstreamProviderError("judge", exc) from exc
 

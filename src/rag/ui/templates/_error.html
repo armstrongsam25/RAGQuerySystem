@@ -3,55 +3,36 @@
    contracts/error-rendering.md). No raw backend text reaches the UI;
    the cause/message stays in the server-side log trail only.
 
-   Retry button appends a fresh chat turn (same `hx-include` strategy as
-   the question form, so the textarea contents go along). #}
+   Retry button reads the question from this turn's user bubble and
+   resubmits via the chat-input form (see retryChatQuery in base.html),
+   so a successful retry lands in a fresh chat-turn. #}
 <div class="status-card status-error" role="alert">
   {% if category == "server" %}
     <span class="badge badge-error">Server error</span>
     <h3 class="status-heading">Server error</h3>
     <p>Something went wrong on our end. Please try again.</p>
-    <button class="btn-retry"
-            type="button"
-            hx-post="/ui/query"
-            hx-include="[name=question]"
-            hx-target="#chat-thread"
-            hx-swap="beforeend">
+    <button class="btn-retry" type="button" onclick="retryChatQuery(this)">
       Retry
     </button>
   {% elif category == "validation" %}
     <span class="badge badge-error">Invalid input</span>
     <h3 class="status-heading">Invalid input</h3>
     <p>We couldn't process that request. Please review and try again.</p>
-    <button class="btn-retry"
-            type="button"
-            hx-post="/ui/query"
-            hx-include="[name=question]"
-            hx-target="#chat-thread"
-            hx-swap="beforeend">
+    <button class="btn-retry" type="button" onclick="retryChatQuery(this)">
       Retry
     </button>
   {% elif category == "network" %}
     <span class="badge badge-error">Network error</span>
     <h3 class="status-heading">Network error</h3>
     <p>Couldn't reach the server. Check your connection and try again.</p>
-    <button class="btn-retry"
-            type="button"
-            hx-post="/ui/query"
-            hx-include="[name=question]"
-            hx-target="#chat-thread"
-            hx-swap="beforeend">
+    <button class="btn-retry" type="button" onclick="retryChatQuery(this)">
       Retry
     </button>
   {% elif category == "rate_limited" %}
     <span class="badge badge-error">Service busy</span>
     <h3 class="status-heading">Service busy</h3>
     <p>We're hitting upstream rate limits. Please wait a moment and try again.</p>
-    <button class="btn-retry"
-            type="button"
-            hx-post="/ui/query"
-            hx-include="[name=question]"
-            hx-target="#chat-thread"
-            hx-swap="beforeend">
+    <button class="btn-retry" type="button" onclick="retryChatQuery(this)">
       Retry
     </button>
   {% else %}
@@ -59,12 +40,7 @@
     <span class="badge badge-error">Server error</span>
     <h3 class="status-heading">Server error</h3>
     <p>Something went wrong on our end. Please try again.</p>
-    <button class="btn-retry"
-            type="button"
-            hx-post="/ui/query"
-            hx-include="[name=question]"
-            hx-target="#chat-thread"
-            hx-swap="beforeend">
+    <button class="btn-retry" type="button" onclick="retryChatQuery(this)">
       Retry
     </button>
   {% endif %}

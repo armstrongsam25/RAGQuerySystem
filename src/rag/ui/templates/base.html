@@ -67,13 +67,9 @@
         </div>
       </header>
 
-      <!-- Document info strip — sits below header as a compact status bar -->
-      <aside id="sidebar" class="doc-strip" aria-label="Document">
-        <div id="current-doc" aria-live="polite" hx-get="/ui/current-doc" hx-trigger="load" hx-swap="innerHTML"></div>
-        <div id="upload-status" aria-live="polite"></div>
-      </aside>
-
-      <!-- Chat pane: scrollable conversation + sticky input bar. -->
+      <!-- Chat pane: scrollable conversation. The input bar is rendered
+           as a sibling below and is `position: fixed` against the viewport
+           so it stays pinned at the bottom on mobile + desktop. -->
       <div id="chat-pane">
         <section id="chat-thread"
                  class="chat-thread"
@@ -83,14 +79,14 @@
                  aria-label="Conversation">
         </section>
 
-        <!-- Question form. JS (onChatConfigRequest) optimistically inserts
-             the chat-turn shell (user bubble + Thinking placeholder) and
-             stashes the new .msg-assistant slot on the form. A body-level
-             htmx:beforeSwap listener (below) reads that stash and retargets
-             the swap so the server response replaces the placeholder
-             in-place. -->
+        <!-- Fixed bottom bar: upload status + compact doc chip + input row.
+             JS (onChatConfigRequest) optimistically inserts the chat-turn
+             shell (user bubble + Thinking placeholder) and stashes the new
+             .msg-assistant slot on the form. A body-level htmx:beforeSwap
+             listener (below) reads that stash and retargets the swap so the
+             server response replaces the placeholder in-place. -->
         <form
-          class="chat-input-form"
+          class="chat-input-bar chat-input-form"
           hx-post="/ui/query"
           hx-target="#chat-thread"
           hx-swap="beforeend"
@@ -98,6 +94,17 @@
           hx-request='"timeout": 60000'
           hx-on::config-request="onChatConfigRequest(event, this)"
           hx-on::after-request="onChatAfterRequest(this, event)">
+          <!-- Upload progress / errors render inline above the input row. -->
+          <div id="upload-status" aria-live="polite"></div>
+          <!-- Compact file chip (when a doc is ingested) + Clear button.
+               #current-doc is the HTMX swap target for GET /ui/current-doc
+               on load, POST /ui/clear, and the upload-success OOB swap. -->
+          <div id="current-doc"
+               aria-live="polite"
+               hx-get="/ui/current-doc"
+               hx-trigger="load"
+               hx-target="this"
+               hx-swap="innerHTML"></div>
           <label for="question" class="sr-label">Your question</label>
           <div class="input-group">
             <textarea
@@ -154,6 +161,21 @@
     </div><!-- /.chat-card -->
   </div><!-- /.page-wrapper -->
 
+  {# Static modal shell for "File info". Lives outside any HTMX swap
+     target so refresh / clear / upload swaps don't move it. Content is
+     populated by openDocModal() from the clicked chip's data-* attributes
+     just before .showModal() is called. #}
+  <dialog id="doc-info-modal" class="doc-modal" aria-labelledby="doc-modal-title">
+    <button
+      type="button"
+      class="doc-modal-close"
+      aria-label="Close"
+      onclick="document.getElementById('doc-info-modal').close()">&times;</button>
+    <h2 id="doc-modal-title" class="doc-modal-title">File info</h2>
+    <a id="doc-modal-name" class="doc-modal-name" target="_blank" rel="noopener"></a>
+    <p id="doc-modal-meta" class="doc-modal-meta"></p>
+  </dialog>
+
   {# Static fallback that the client-side handler swaps into the
      optimistic chat-turn's .msg-assistant slot on network failure /
      timeout. The user bubble already exists in the DOM (rendered
@@ -164,10 +186,7 @@
       <span class="badge badge-error">Network error</span>
       <h3 class="status-heading">Network error</h3>
       <p>Couldn't reach the server. Check your connection and try again.</p>
-      <button class="btn-retry"
-              type="button"
-              hx-post="/ui/query"
-              hx-include="[name=question]">
+      <button class="btn-retry" type="button" onclick="retryChatQuery(this)">
         Retry
       </button>
     </div>
@@ -190,6 +209,55 @@
       el.style.height = 'auto';
       // Cap at the CSS max-height so the scrollbar appears past ~6 rows.
       el.style.height = Math.min(el.scrollHeight, 168) + 'px';
+    }
+
+    // Open the doc-info modal, filling in name / link / counts from the
+    // chip's data-* attributes. Keeps the <dialog> shell stable in base.html
+    // so HTMX swaps into #current-doc don't move it.
+    function openDocModal(chip) {
+      var modal = document.getElementById('doc-info-modal');
+      if (!modal) return;
+      var name = chip.dataset.filename || '';
+      var pdfUrl = chip.dataset.pdfUrl || '';
+      var chunks = parseInt(chip.dataset.chunks, 10) || 0;
+      var pages = parseInt(chip.dataset.pages, 10) || 0;
+      var nameEl = document.getElementById('doc-modal-name');
+      if (nameEl) {
+        nameEl.textContent = name;
+        if (pdfUrl) {
+          nameEl.setAttribute('href', pdfUrl);
+          nameEl.setAttribute('title', 'Open the original PDF in a new tab');
+        } else {
+          nameEl.removeAttribute('href');
+          nameEl.removeAttribute('title');
+        }
+      }
+      var metaEl = document.getElementById('doc-modal-meta');
+      if (metaEl) {
+        metaEl.textContent =
+          chunks + ' chunk' + (chunks === 1 ? '' : 's') + ' · ' +
+          pages + ' page' + (pages === 1 ? '' : 's');
+      }
+      if (typeof modal.showModal === 'function') modal.showModal();
+    }
+
+    // Retry handler for error cards. Reads the question from the user
+    // bubble of the failed chat-turn, drops it back into the textarea, and
+    // triggers the chat-input form's normal submit. That reuses the
+    // optimistic chat-turn insert + htmx:beforeSwap retarget so a successful
+    // retry lands in a fresh turn instead of a bare assistant card.
+    function retryChatQuery(btn) {
+      var turn = btn.closest('.chat-turn');
+      var bubble = turn ? turn.querySelector('.msg-user p') : null;
+      var question = bubble ? bubble.textContent : '';
+      if (!question) return;
+      var ta = document.getElementById('question');
+      var form = ta ? ta.form : null;
+      if (!ta || !form) return;
+      ta.value = question;
+      autosizeQuestion(ta);
+      if (typeof form.requestSubmit === 'function') form.requestSubmit();
+      else form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
     }
 
     // Optimistic render hook. Fires on htmx:configRequest BEFORE the
@@ -382,6 +450,34 @@
       if (evt.detail && evt.detail.target && evt.detail.target.id === 'chat-thread') {
         thread.scrollTop = thread.scrollHeight;
       }
+    });
+
+    // Auto-dismiss the "Upload complete" card 3s after it appears. The
+    // chip in #current-doc (populated by the same response's OOB swap) is
+    // the persistent indicator — the success card is just transient
+    // confirmation. If a new upload kicks off during the timer, the
+    // success card is replaced by the in-progress card, so the timeout
+    // check finds no .status-upload and becomes a no-op.
+    //
+    // Listen for ANY swap (not just swaps targeting #upload-status) because
+    // the async upload path polls _upload_in_progress.html with
+    // hx-target="this" / hx-swap="outerHTML" — when the polling returns
+    // the success card, the swap target is the per-task progress div, not
+    // #upload-status. We just check whether #upload-status now contains a
+    // .status-upload and schedule one dismiss. A data attribute on the
+    // success card prevents rescheduling if multiple swaps fire while the
+    // timer is pending.
+    document.body.addEventListener('htmx:afterSwap', function () {
+      var status = document.getElementById('upload-status');
+      if (!status) return;
+      var success = status.querySelector('.status-upload');
+      if (!success || success.dataset.dismissScheduled) return;
+      success.dataset.dismissScheduled = '1';
+      setTimeout(function () {
+        if (status.querySelector('.status-upload')) {
+          status.innerHTML = '';
+        }
+      }, 3000);
     });
   </script>
 </body>
