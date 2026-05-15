@@ -1,0 +1,23 @@
+# Gitleaks scan config.
+# The repo is scanned via --no-git over the working tree so that local
+# fixtures and uncommitted files are caught alongside committed ones. We
+# explicitly skip paths that are gitignored or otherwise outside the
+# committed surface so the report stays signal-rich.
+title = "RAGQuerySystem gitleaks config"
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Paths and files excluded from the scan"
+paths = [
+    # Local virtualenv — all findings here live in upstream package source
+    # (test fixtures, RFC reference values mis-classified as API keys).
+    '''\.venv/''',
+    '''\.venv\\''',
+    # Local-only env file (gitignored).
+    '''(^|/)\.env$''',
+    # Bytecode caches.
+    '''__pycache__/''',
+    '''\.pyc$''',
+]
