@@ -32,7 +32,7 @@ import asyncio
 import os
 import re
 from pathlib import Path
-from typing import Annotated
+from typing import Annotated, cast
 from urllib.parse import quote
 
 from fastapi import Depends, FastAPI, File, Form, HTTPException, Request, UploadFile
@@ -67,19 +67,19 @@ _templates = Jinja2Templates(directory=str(_TEMPLATES_DIR))
 
 
 def _get_chunk_repo(request: Request) -> ChunkRepository:
-    return request.app.state.chunk_repo
+    return cast(ChunkRepository, request.app.state.chunk_repo)
 
 
 def _get_providers(request: Request) -> Providers:
-    return request.app.state.providers
+    return cast(Providers, request.app.state.providers)
 
 
 def _get_settings(request: Request) -> Settings:
-    return request.app.state.settings
+    return cast(Settings, request.app.state.settings)
 
 
 def _get_pool(request: Request) -> AsyncConnectionPool:
-    return request.app.state.pool
+    return cast(AsyncConnectionPool, request.app.state.pool)
 
 
 def _try_unlink_pdf(storage_dir: Path, file_hash: str, *, trace_id: str) -> None:
@@ -116,9 +116,7 @@ def _write_pdf_atomically(storage_dir: Path, file_hash: str, pdf_bytes: bytes) -
     os.replace(tmp, final)
 
 
-def _pdf_available_hashes(
-    docs: list[SourceDocumentInfo], storage_dir: Path
-) -> set[str]:
+def _pdf_available_hashes(docs: list[SourceDocumentInfo], storage_dir: Path) -> set[str]:
     """Return the subset of ``docs`` file_hashes whose PDF bytes are on disk.
 
     Used by the templates to decide whether to render the filename as a
@@ -135,7 +133,7 @@ def _pdf_available_hashes(
     return available
 
 
-def _render(template_name: str, context: dict) -> str:
+def _render(template_name: str, context: dict[str, object]) -> str:
     """Render a template to a string without a Request.
 
     Used by the background task to pre-render the terminal result HTML
@@ -310,9 +308,7 @@ def register_ui_routes(app: FastAPI) -> None:
             "_current_doc.html",
             {
                 "docs": docs,
-                "pdf_available_hashes": _pdf_available_hashes(
-                    docs, settings.RAG_PDF_STORAGE_DIR
-                ),
+                "pdf_available_hashes": _pdf_available_hashes(docs, settings.RAG_PDF_STORAGE_DIR),
             },
         )
 
@@ -485,9 +481,11 @@ def register_ui_routes(app: FastAPI) -> None:
         # the POST handler returns.
         pdf_bytes = await pdf.read()
         display_filename = pdf.filename or "upload.pdf"
-        gemini = providers.embedder
-        if not isinstance(gemini, GeminiProvider):
-            gemini = gemini  # type: ignore[assignment]
+        # The upload task needs the Gemini-specific extract_page_text method,
+        # not just the LLMProvider surface. In production the embedder IS the
+        # GeminiProvider; tests inject a compatible fake. Cast at the boundary
+        # so the type system understands the contract.
+        gemini = cast(GeminiProvider, providers.embedder)
 
         job = UploadJob(task_id=trace_id, filename=display_filename)
         upload_jobs[trace_id] = job
@@ -881,9 +879,7 @@ async def _run_upload_task(
                 "elapsed_s": round(outcome.elapsed_s, 2),
                 "trace_id": trace_id,
                 "docs": docs,
-                "pdf_available_hashes": _pdf_available_hashes(
-                    docs, settings.RAG_PDF_STORAGE_DIR
-                ),
+                "pdf_available_hashes": _pdf_available_hashes(docs, settings.RAG_PDF_STORAGE_DIR),
                 "prior_filename": prior_filename,
             },
         )

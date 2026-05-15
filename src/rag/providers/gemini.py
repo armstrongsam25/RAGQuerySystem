@@ -260,7 +260,12 @@ class GeminiProvider:
                         f"Gemini embed returned {len(resp.embeddings or [])} "
                         f"embeddings for 1 input (model={model})"
                     )
-                return list(resp.embeddings[0].values)
+                values = resp.embeddings[0].values
+                if values is None:
+                    raise RuntimeError(
+                        f"Gemini embed returned an embedding with no values (model={model})"
+                    )
+                return list(values)
 
             async with semaphore:
                 return await _with_retry("embed", _call, timeout_s=_TIMEOUT_EMBED_S)
@@ -354,9 +359,7 @@ class GeminiProvider:
             )
             return (resp.text or "").strip()
 
-        return await _with_retry(
-            f"extract_page_{page_number}", _call, timeout_s=_TIMEOUT_EXTRACT_S
-        )
+        return await _with_retry(f"extract_page_{page_number}", _call, timeout_s=_TIMEOUT_EXTRACT_S)
 
 
 def _parse_verdict(payload: object, passages: list[ChunkForJudging]) -> JudgeVerdict:

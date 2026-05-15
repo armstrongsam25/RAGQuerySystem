@@ -1,8 +1,7 @@
 """Unit tests for the `rag` CLI surface.
 
-Feature 002 made `ingest` and `query` real (no longer stubs). Only `eval`
-is still a stub, owned by feature 003. The discoverability properties of
-spec FR-007 acceptance #3 still hold: every command is listed by
+`ingest`, `query`, `serve`, and `eval` are all real. The discoverability
+properties of spec FR-007 acceptance #3 hold: every command is listed by
 ``rag --help``.
 """
 
@@ -13,16 +12,13 @@ from typer.testing import CliRunner
 from rag.cli.main import app
 
 
-def test_eval_stub_exits_with_code_2_and_documented_stderr() -> None:
+def test_eval_command_has_documented_help() -> None:
     runner = CliRunner()
-    result = runner.invoke(app, ["eval"])
-
-    assert result.exit_code == 2, (
-        f"expected exit code 2 for `rag eval`, got {result.exit_code}; stderr={result.stderr!r}"
-    )
-    assert "eval" in result.stderr
-    assert "00X-eval-harness" in result.stderr
-    assert "not yet implemented" in result.stderr
+    result = runner.invoke(app, ["eval", "--help"])
+    assert result.exit_code == 0
+    assert "--questions" in result.stdout
+    assert "--results-jsonl" in result.stdout
+    assert "--results-md" in result.stdout
 
 
 def test_root_help_lists_every_subcommand() -> None:

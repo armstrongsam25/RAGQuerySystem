@@ -4,7 +4,7 @@ Subcommands:
   * `ingest` — real (feature 002).
   * `query`  — real (feature 002).
   * `serve`  — new (feature 002), wraps uvicorn.
-  * `eval`   — stub, delivered by feature 003-eval-harness.
+  * `eval`   — real, closes Article III (feature 005-code-review-polish).
 """
 
 from __future__ import annotations
@@ -58,4 +58,4 @@ def _root(
 app.command(name="ingest", help="Ingest a PDF into the vector store.")(ingest)
 app.command(name="query", help="Ask a question over the ingested PDF.")(query)
 app.command(name="serve", help="Run the FastAPI service (uvicorn).")(serve)
-app.command(name="eval", help="(stub) Run the eval set and emit metrics.")(eval_cmd)
+app.command(name="eval", help="Run the eval set and emit metrics.")(eval_cmd)

@@ -31,6 +31,7 @@ from rag.log import configure_logging, get_logger
 from rag.migrations import run_pending
 from rag.providers import GeminiProvider, Providers
 from rag.repositories import PgVectorChunkRepository
+from rag.ui.upload_jobs import UploadJob
 
 logger = get_logger(__name__)
 
@@ -135,7 +136,8 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     # are short-lived task_ids (one per upload). Cleared by the status
     # endpoint after returning a terminal partial.
 
-    app.state.upload_jobs = {}  # type: dict[str, UploadJob]
+    upload_jobs: dict[str, UploadJob] = {}
+    app.state.upload_jobs = upload_jobs
 
     logger.info("startup_ready", extra={"schema_version": schema_version})
     try:

@@ -16,7 +16,7 @@ from __future__ import annotations
 import time
 from collections.abc import AsyncIterator, Callable
 from contextlib import AbstractAsyncContextManager, asynccontextmanager
-from typing import Annotated, Literal
+from typing import Annotated, Literal, cast
 
 from fastapi import Depends, FastAPI, Request, Response, status
 from fastapi.responses import JSONResponse
@@ -65,23 +65,23 @@ class HealthUnhealthy(BaseModel):
 
 
 def get_pool(request: Request) -> Pool:
-    return request.app.state.pool
+    return cast(Pool, request.app.state.pool)
 
 
 def get_schema_version(request: Request) -> str:
-    return request.app.state.schema_version
+    return cast(str, request.app.state.schema_version)
 
 
 def get_settings_state(request: Request) -> Settings:
-    return request.app.state.settings
+    return cast(Settings, request.app.state.settings)
 
 
 def get_chunk_repo(request: Request) -> ChunkRepository:
-    return request.app.state.chunk_repo
+    return cast(ChunkRepository, request.app.state.chunk_repo)
 
 
 def get_providers(request: Request) -> Providers:
-    return request.app.state.providers
+    return cast(Providers, request.app.state.providers)
 
 
 # --- App factory ---------------------------------------------------------
