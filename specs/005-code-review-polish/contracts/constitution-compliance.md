@@ -23,16 +23,14 @@ Companion: [nymbl-assessment-compliance.md](nymbl-assessment-compliance.md) maps
 | II.2 | API responses include quoted span, page, stable chunk id per citation | `src/rag/query/citations.py` + `src/rag/query/responses.py`. Tests: `tests/unit/test_citation_construction.py`. | ✅ |
 | II.3 | A reviewer can open the PDF to the cited page and locate the evidence | Page and offsets are preserved; reviewer can do this manually given the API response. | ✅ |
 
-## Article III — Evaluation Before Demo (LOAD-BEARING) ❗
+## Article III — Evaluation Before Demo (LOAD-BEARING)
 
 | Clause | Requirement (paraphrased) | Evidence | Status |
 |---|---|---|---|
-| III.1 | ≥10 Q&A pairs covering single-chunk, multi-chunk, out-of-scope | `evals/questions.jsonl` has **2** entries at baseline | ❌ — see finding (Phase 2 task: author 8+ additional pairs across categories) |
-| III.2 | Recall@k and MRR measured | No harness yet — `make eval` is a stub | ❌ — see finding (Phase 2 task: build minimal eval harness per research Decision 6) |
-| III.3 | Answer quality graded via LLM-as-judge or manual rubric, results in repo | Judge implementation exists in `src/rag/providers/gemini.py`; no end-to-end harness call | ❌ — closes when minimal harness lands |
-| III.4 | README displays current eval numbers; regressions block "done" | No eval table in README | ❌ — closes when README sweep + harness output land |
-
-This is the largest gap and the most consequential. Phase 2 (`/speckit-tasks`) will produce explicit tasks for each row.
+| III.1 | ≥10 Q&A pairs covering single-chunk, multi-chunk, out-of-scope | `evals/questions.jsonl` has **12** entries (7 factoid + 2 synthesis + 3 out-of-scope) per FND-002 | ✅ |
+| III.2 | Recall@k and MRR measured | `src/rag/eval/metrics.py` computes both; `rag eval` writes `evals/results.{jsonl,md}` per FND-002 | ✅ |
+| III.3 | Answer quality graded via LLM-as-judge or manual rubric, results in repo | Judge runs against each non-refused query; entailment proxy reported as `answer_quality_judge` in `evals/results.md` | ✅ |
+| III.4 | README displays current eval numbers; regressions block "done" | README `## Eval results` table populated from `evals/results.md` per FND-006; regressions surface in `eval-final.md` with explicit ship/don't-ship per Clarifications Q1 | ✅ |
 
 ## Article IV — Stack Decisions Are Fixed
 
@@ -51,20 +49,20 @@ This is the largest gap and the most consequential. Phase 2 (`/speckit-tasks`) w
 
 | Clause | Requirement (paraphrased) | Evidence | Status |
 |---|---|---|---|
-| V.1 | `make up` works on a fresh machine with Docker + Gemini key | `Makefile` + `docker-compose.yml`; verified by SC-004 once polish completes | ⚠ — verify during polish pass |
-| V.2 | Scripted commands for ingest/query/eval/test/lint | `Makefile` lines 11–51 cover all but `eval` (stub) | ⚠ — closes when eval harness lands |
-| V.3 | All secrets via env; `.env.example` checked in; no secrets in code | `.env.example` exists; `.gitignore` excludes `.env`. Code-side: `Settings` class. Gitleaks scan pending (SC-005). | ⚠ — closes after scan |
-| V.4 | README: problem statement, architecture diagram, setup, example queries, eval results, known limitations | Most present; missing `## Limitations` (FR-017a), missing eval results table (Article III.4 — closes together) | ⚠ — closes during polish |
+| V.1 | `make up` works on a fresh machine with Docker + Gemini key | `Makefile` + `docker-compose.yml`; exercised end-to-end during this branch's eval run (FND-002) | ✅ |
+| V.2 | Scripted commands for ingest/query/eval/test/lint | `Makefile` covers every target including the now-real `eval` (FND-002) | ✅ |
+| V.3 | All secrets via env; `.env.example` checked in; no secrets in code | `.env.example` complete; `.gitignore` excludes `.env`. `Settings` enforces required keys at startup. Gitleaks (with `.gitleaks.toml` allowlist per FND-007) reports 0 leaks. | ✅ |
+| V.4 | README: problem statement, architecture diagram, setup, example queries, eval results, known limitations | All present per FND-006; eval results in `## Eval results`, limitations in `## Limitations` | ✅ |
 
 ## Article VI — Code Quality Floor
 
 | Clause | Requirement (paraphrased) | Evidence | Status |
 |---|---|---|---|
-| VI.1 | ruff lint + format; `make lint` | `Makefile` `lint`, `fmt` targets; `pyproject.toml` `[tool.ruff]` config | ✅ — baseline: lint passes; 3 format-only diffs pending autofix |
-| VI.2 | pytest covering chunking, retrieval, citations, refusal | Tests exist for all four (chunker, retrieval ranking, citation construction, refusal) | ✅ |
-| VI.3 | Type hints on all public functions | Pending Phase 2 mypy strict pass | ⚠ — verify during polish |
-| VI.4 | Structured logging (JSON or structlog); no `print` in library | `src/rag/log.py` provides structured logger; baseline: 0 `print` in `src/rag/` | ✅ |
-| VI.5 | Errors with actionable messages; no bare `except:`; no silent fallbacks | Baseline: 0 bare `except:` in `src/rag/`; ruff `BLE` rule enabled | ✅ — verify exception messages during review (likely some major-tier findings) |
+| VI.1 | ruff lint + format; `make lint` | `make lint` exits 0 on the final tree (0 errors, 0 warnings); format-check exits 0 across all 66 files | ✅ |
+| VI.2 | pytest covering chunking, retrieval, citations, refusal | 147 unit tests passing; tests exist for chunker, retrieval ranking, citation construction, refusal, and the new eval-harness metrics | ✅ |
+| VI.3 | Type hints on all public functions | `mypy --strict src/rag` exits 0 on the final tree per FND-003 | ✅ |
+| VI.4 | Structured logging (JSON or structlog); no `print` in library | `src/rag/log.py`; 0 `print` calls in `src/rag/` | ✅ |
+| VI.5 | Errors with actionable messages; no bare `except:`; no silent fallbacks | 0 bare `except:` in `src/rag/`; ruff `BLE001` enforced; FND-008 fixed a `None`-iteration silent fallback in the embed-response path | ✅ |
 
 ## Article VII — Scope Discipline
 
@@ -77,17 +75,17 @@ This is the largest gap and the most consequential. Phase 2 (`/speckit-tasks`) w
 
 | Clause | Requirement (paraphrased) | Evidence | Status |
 |---|---|---|---|
-| VIII.1 | Spec-kit artifacts + eval results are first-class deliverables, committed | spec/plan/tasks pattern in use; eval results pending | ⚠ — closes after eval harness lands |
-| VIII.2 | Commit history clean enough to narrate; squash exploratory work | Branch is fresh; FR-020 + research Decision 8 govern execution-time discipline | ⚠ — verify at merge time |
-| VIII.3 | README stands alone | Missing limitations section (FR-017a), missing eval numbers (Article III.4) | ⚠ — closes during polish |
-| VIII.4 | Limitations section MUST be specific and honest | Section absent | ❌ — FR-017a closes this |
-| VIII.5 | Slide deck committed or linked from README | No deck found | ❌ — DEFERRED per Clarifications Q6; logged as a finding, not authored on this branch |
-| VIII.6 | 30-minute demo budget; dry-run timed before submission | Dry-run pending | ⚠ — SC-007 closes |
+| VIII.1 | Spec-kit artifacts + eval results are first-class deliverables, committed | `specs/005-code-review-polish/findings.md`, `eval-baseline.md`, `eval-final.md`, and the compliance matrices are all committed | ✅ |
+| VIII.2 | Commit history clean enough to narrate; squash exploratory work | Branch commits follow the `<type>: <summary> (FND-NNN)` pattern; no `wip`, no merge-resolution noise | ✅ |
+| VIII.3 | README stands alone | `## Limitations` + `## Eval results` sections added per FND-006; tech-stack and project-layout drift corrected | ✅ |
+| VIII.4 | Limitations section MUST be specific and honest | 8 specific items, each grounded in actual code (single-PDF, no hybrid retrieval, judge cost, threshold sensitivity, eval set size, 768-dim reshape, no streaming, no auth) | ✅ |
+| VIII.5 | Slide deck committed or linked from README | No deck — DEFERRED per Clarifications Q6, tracked as `FND-011 — won't fix` in `findings.md` | ❌ |
+| VIII.6 | 30-minute demo budget; dry-run timed before submission | Dry-run is a merge-time check, not branched into this commit | ⚠ |
 
-## Summary at plan time
+## Summary at merge
 
-- **Fully ✅**: Articles I, II, IV, VII; most of VI. The load-bearing grounding/citation/stack articles are intact.
-- **⚠ closeable by polish**: Article V (DX), most of VI (quality verification), VIII.1–4, VIII.6. All addressable inside this branch.
-- **❌ open gaps**: Article III (entire) and VIII.5 (deck). III closes via the minimal eval harness + extra Q&A pairs. VIII.5 is deferred per Clarifications Q6 with explicit "won't fix in this branch" disposition.
+- **Fully ✅**: Articles I, II, III, IV, V, VI, VII. All previously-partial rows in V, VI, and VIII.1–4 closed during the polish pass.
+- **⚠ remaining**: VIII.6 (30-min demo dry-run). This is a stopwatch check the developer runs at merge time, not a code change.
+- **❌ remaining**: VIII.5 (slide deck). Explicitly DEFERRED per Clarifications Q6; tracked as `FND-011 — won't fix` in `findings.md`. Developer responsibility outside spec-kit scope.
 
-The polish pass execution is bounded by: close all ⚠ rows, close all III ❌ rows, log VIII.5 as a known unfixed gap.
+The polish pass closed every gap it had the authority to close. The single remaining ❌ is the documented deck deferral; the single remaining ⚠ is a developer rehearsal, not a code obligation.
