@@ -21,6 +21,7 @@ RUN --mount=type=cache,target=/root/.cache/uv \
 # Copy application source.
 COPY src/ src/
 COPY migrations/ migrations/
+COPY evals/ evals/
 
 # Install the project itself (now that the source is present).
 RUN --mount=type=cache,target=/root/.cache/uv \
