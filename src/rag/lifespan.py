@@ -28,10 +28,10 @@ from fastapi import FastAPI
 from rag.config import Settings, get_settings
 from rag.db import make_pool
 from rag.log import configure_logging, get_logger
-from rag.ui.upload_jobs import UploadJob
 from rag.migrations import run_pending
 from rag.providers import GeminiProvider, Providers
 from rag.repositories import PgVectorChunkRepository
+from rag.ui.upload_jobs import UploadJob
 
 logger = get_logger(__name__)
 
