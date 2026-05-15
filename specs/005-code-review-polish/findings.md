@@ -25,9 +25,9 @@ To audit traceability: each `Commit ref` value matches `git log --oneline --grep
 | FND-002 | `src/rag/eval/` ; `src/rag/cli/eval.py` ; `evals/questions.jsonl` ; `Makefile` | critical | correctness | fixed | `feat: implement minimal eval harness, expand question set, wire make eval (FND-002)` |
 | FND-003 | `src/rag/api.py` ; `src/rag/lifespan.py` ; `src/rag/providers/gemini.py` ; `src/rag/ui/routes.py` ; `src/rag/ui/upload_jobs.py` ; `pyproject.toml` | critical | correctness | fixed | `fix: pass mypy --strict on src/rag (FND-003)` |
 | FND-004 | `.venv/Scripts/*.exe` (developer environment) | critical | correctness | fixed | `chore: rebuild .venv from uv.lock to fix exe shim interpreter paths` (folded into FND-001 commit narrative — the venv reset is what made the tests runnable) |
-| FND-005 | `Dockerfile` ; `docker-compose.yml` | major | correctness | fixed | `chore: ship evals/ into the app image and mount it back read-write so make eval works in-stack (FND-005)` |
-| FND-006 | `README.md` | major | doc | fixed | `docs: README accuracy sweep, add Limitations and Eval results sections (FND-006)` |
-| FND-007 | `.gitleaks.toml` | major | security | fixed | `chore: add gitleaks config that excludes .venv/.env so committed-surface scan is signal-rich (FND-007)` |
+| FND-005 | `Dockerfile` ; `docker-compose.yml` | major | correctness | fixed | `d9643b6 — chore: ship evals/ into the app image and capture first results (FND-005)` |
+| FND-006 | `README.md` | major | doc | fixed | `096074a — docs: README accuracy sweep, add Limitations and Eval results sections (FND-006)` |
+| FND-007 | `.gitleaks.toml` | major | security | fixed | `7f79788 — chore: add gitleaks config that excludes .venv/.env so committed-surface scan is signal-rich (FND-007)` |
 | FND-008 | `src/rag/providers/gemini.py` | major | correctness | fixed | Embedding-response `.values` could be `None`; added an explicit guard before `list(...)` so a degenerate Gemini response fails fast with a typed `RuntimeError` instead of `TypeError: 'NoneType' is not iterable`. Folded into FND-003 commit. |
 | FND-009 | `tests/unit/test_cli_stubs.py` | minor | correctness | fixed | The stub-exit test for `rag eval` was asserting `exit_code == 2` and "not yet implemented" — both invalid after FND-002 landed real CLI plumbing. Replaced with a `--help` smoke test that pins the documented option surface. Folded into FND-002 commit. |
 | FND-010 | `src/rag/cli/main.py` | minor | doc | fixed | Module docstring claimed `eval` was a stub "delivered by feature 003-eval-harness". Updated to reflect that 005-code-review-polish closes it. Folded into FND-002 commit. |
@@ -57,7 +57,7 @@ To audit traceability: each `Commit ref` value matches `git log --oneline --grep
 - **Suggested remediation**:
   Build the minimum viable harness: `src/rag/eval/` module with pure metric functions (Recall@k, MRR, refusal precision, judge-entailment proxy for answer quality), a runner that plumbs each question through the existing `answer_question` orchestrator plus a direct `repo.search` for retrieval-page observability, and JSONL + Markdown reporters. Author 10 new Q&A entries across `factoid`, `synthesis`, and `out_of_scope` categories grounded in the three pages of the sample PDF. Wire `make eval` to invoke the real CLI. Add deterministic unit tests for the metric math.
 - **Disposition**: fixed
-- **Commit ref**: `19fcaf3 — feat: implement minimal eval harness, expand question set, wire make eval (FND-002)`
+- **Commit ref**: `a58cb38 — feat: implement minimal eval harness, expand question set, wire make eval (FND-002)`
 
 ### FND-003 — `mypy --strict src/rag` reports 23 errors
 
@@ -93,7 +93,7 @@ To audit traceability: each `Commit ref` value matches `git log --oneline --grep
 - **Suggested remediation**:
   Add `COPY evals/ evals/` to the Dockerfile and mount `./evals:/app/evals` (read-write) in `docker-compose.yml` so a fresh `make eval` can both read the committed question set and write fresh `results.{jsonl,md}` files that the developer commits afterward.
 - **Disposition**: fixed
-- **Commit ref**: `c-eval-docker — chore: ship evals/ into the app image and mount it back read-write so make eval works in-stack (FND-005)`
+- **Commit ref**: `d9643b6 — chore: ship evals/ into the app image and capture first results (FND-005)`
 
 ### FND-006 — README drift: stale test count, stale tech-stack claim, stale project-layout comment, missing Limitations + eval-results sections
 
@@ -105,7 +105,7 @@ To audit traceability: each `Commit ref` value matches `git log --oneline --grep
 - **Suggested remediation**:
   Bump the badge to 147. Drop the "start a local OpenAI LLM" step from Quickstart. Update tech stack to name `gemini-2.5-flash-lite` as the judge. Fix the `evals/` comment. Add `## Eval results` (from the live `make eval` output) and `## Limitations` (8 specific items grounded in the actual code — single-PDF corpus, no hybrid retrieval, judge cost, refusal-threshold sensitivity, eval set size, 768-dim reshape, no streaming, no auth).
 - **Disposition**: fixed
-- **Commit ref**: `c-readme-polish — docs: README accuracy sweep, add Limitations and Eval results sections (FND-006)`
+- **Commit ref**: `096074a — docs: README accuracy sweep, add Limitations and Eval results sections (FND-006)`
 
 ### FND-007 — Gitleaks reports 17 hits on a working-tree scan; none on committed surface
 
@@ -117,7 +117,7 @@ To audit traceability: each `Commit ref` value matches `git log --oneline --grep
 - **Suggested remediation**:
   Commit a `.gitleaks.toml` config with `[allowlist.paths]` regex entries excluding `.venv/`, `.env`, and `__pycache__`. Rescan with `--config /repo/.gitleaks.toml` — the result is `no leaks found`, exit 0.
 - **Disposition**: fixed
-- **Commit ref**: `c-gitleaks — chore: add gitleaks config that excludes .venv/.env so committed-surface scan is signal-rich (FND-007)`
+- **Commit ref**: `7f79788 — chore: add gitleaks config that excludes .venv/.env so committed-surface scan is signal-rich (FND-007)`
 
 ### FND-008 — Embed response `.values` could be `None`; `list(None)` would crash at runtime
 
@@ -141,7 +141,7 @@ To audit traceability: each `Commit ref` value matches `git log --oneline --grep
 - **Suggested remediation**:
   Replace with a `rag eval --help` smoke test that pins the documented option surface (`--questions`, `--results-jsonl`, `--results-md`). Update the module docstring to drop the "eval is still a stub" framing.
 - **Disposition**: fixed (folded into FND-002 commit `19fcaf3`)
-- **Commit ref**: `19fcaf3 — feat: implement minimal eval harness, expand question set, wire make eval (FND-002)`
+- **Commit ref**: `a58cb38 — feat: implement minimal eval harness, expand question set, wire make eval (FND-002)`
 
 ### FND-010 — `src/rag/cli/main.py` docstring claims `eval` is a stub
 
@@ -153,7 +153,7 @@ To audit traceability: each `Commit ref` value matches `git log --oneline --grep
 - **Suggested remediation**:
   Update docstring to `* eval — real, closes Article III (feature 005-code-review-polish).` Drop the `(stub)` prefix on the command help.
 - **Disposition**: fixed (folded into FND-002 commit `19fcaf3`)
-- **Commit ref**: `19fcaf3 — feat: implement minimal eval harness, expand question set, wire make eval (FND-002)`
+- **Commit ref**: `a58cb38 — feat: implement minimal eval harness, expand question set, wire make eval (FND-002)`
 
 ### FND-011 — Article VIII.5 slide deck not produced on this branch
 

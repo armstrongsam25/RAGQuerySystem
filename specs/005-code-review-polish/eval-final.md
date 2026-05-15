@@ -59,5 +59,7 @@ Not formally stopwatched on this run because the developer's working stack staye
 
 ```
 $ git rev-parse HEAD
-<final HEAD captured at merge>
+57d5b0eb0eb287ae585b5b1ce7bd3b795775cc67
 ```
+
+(Hash captured at the point findings.md and the compliance matrices were committed; any commits that land after this are pure docs/typo polish on top of the final state.)
