@@ -1,12 +1,4 @@
-"""`rag eval` — run the eval set against the live stack and emit metrics.
-
-Closes constitution Article III. Outputs land in ``evals/results.jsonl``
-(machine-readable, one row per metric + per-question detail) and
-``evals/results.md`` (human summary, linked from the README).
-
-Function is named ``eval_cmd`` so we don't shadow the Python builtin
-``eval``; the user-facing Typer command name is still ``eval``.
-"""
+"""`rag eval` — run the eval set against the live stack and emit metrics."""
 
 from __future__ import annotations
 
@@ -21,7 +13,7 @@ from rag.eval.models import EvalSummary
 from rag.eval.reporters import write_jsonl, write_markdown
 from rag.eval.runner import load_questions, run_eval
 from rag.log import configure_logging, get_logger
-from rag.providers import GeminiProvider, Providers
+from rag.providers import LocalEmbeddingProvider, LocalEmbeddingProviderEmbedder, OpenAIProvider, Providers
 from rag.repositories import PgVectorChunkRepository
 
 logger = get_logger(__name__)
@@ -76,8 +68,10 @@ async def _run(questions_path: Path, top_k: int, settings: Settings) -> EvalSumm
     await pool.open(wait=True, timeout=10)
     try:
         repo = PgVectorChunkRepository(pool)
-        gemini = GeminiProvider(settings)
-        providers = Providers(embedder=gemini, generator=gemini, judge=gemini)
+        local_embed = LocalEmbeddingProvider(settings)
+        embedder = LocalEmbeddingProviderEmbedder(local_embed)
+        llm = OpenAIProvider(settings)
+        providers = Providers(embedder=embedder, generator=llm, judge=llm)
         questions = load_questions(questions_path)
         return await run_eval(
             questions, repo=repo, providers=providers, settings=settings, top_k=top_k

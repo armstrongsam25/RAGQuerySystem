@@ -12,6 +12,8 @@ import pytest
 # A minimal "valid" environment for the Settings model. Tests that exercise
 # the missing-key refusal path use ``invalid_env`` instead.
 _VALID_ENV: dict[str, str] = {
+    "LLM_API_KEY": "test-key-please-ignore",
+    "LLM_BASE_URL": "https://fake-api.test/v1",
     "GEMINI_API_KEY": "test-key-please-ignore",
     "DATABASE_URL": "postgresql://rag:rag@db:5432/rag",
     "POSTGRES_USER": "rag",
@@ -19,16 +21,16 @@ _VALID_ENV: dict[str, str] = {
     "POSTGRES_DB": "rag",
     "EMBEDDING_DIM": "768",
     "LOG_LEVEL": "INFO",
-    "EMBEDDING_MODEL": "gemini-embedding-001",
-    "GENERATION_MODEL": "gemini-2.5-flash",
+    "EMBEDDING_MODEL": "test-embedding-model",
+    "GENERATION_MODEL": "test-gen-model",
+    "GROUNDING_JUDGE_MODEL": "test-judge-model",
     # Feature 002 additions:
     "RAG_TOP_K": "5",
     "RAG_SIM_FLOOR": "0.4",
     "RAG_EMBED_BATCH": "32",
-    "RAG_GEMINI_CONCURRENCY": "4",
+    "RAG_PROVIDER_CONCURRENCY": "4",
     "RAG_QUOTED_SPAN_MAX": "400",
     "RAG_QUESTION_MAX_LEN": "1000",
-    "GROUNDING_JUDGE_MODEL": "gemini-2.5-flash-lite",
 }
 
 

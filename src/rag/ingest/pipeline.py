@@ -3,23 +3,19 @@
 Two public entry points:
 
 - :func:`ingest_pdf` — path-based. Reads bytes from disk and delegates to
-  :func:`ingest_pdf_core`. The historical CLI entry point; behavior
-  unchanged from feature 002.
+  :func:`ingest_pdf_core`. The historical CLI entry point.
 - :func:`ingest_pdf_core` — bytes-based. Accepts an optional caller-owned
   connection so the upload route (feature 003) can wrap clear-then-ingest
-  in a single transaction for strict-rollback (spec FR-019). Also accepts
-  an optional ``cancel_check`` coroutine polled at natural checkpoints so
-  a client disconnect can abort the run mid-flight and the open
-  transaction rolls back (feature 003 user `/speckit-plan` input + R-005).
+  in a single transaction.
 
 Steps (spec FR-001 → FR-006):
     1. read bytes (path wrapper) or accept them (core)
     2. sha256 → file_hash
     3. ensure_source_document(file_hash, display_filename)
        -> if not created, short-circuit "already ingested"
-    4. enumerate_pages + extract_pages_via_gemini
+    4. enumerate_pages + extract pages via provider
     5. chunk_pages
-    6. gemini.embed in RAG_EMBED_BATCH-sized batches
+    6. provider.embed in RAG_EMBED_BATCH-sized batches
     7. repo.add_chunks
     8. emit ingest_complete log
 """
@@ -27,6 +23,7 @@ Steps (spec FR-001 → FR-006):
 from __future__ import annotations
 
 import hashlib
+import math
 import time
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
@@ -38,9 +35,9 @@ from psycopg import AsyncConnection
 
 from rag.config import Settings
 from rag.ingest.chunker import chunk_pages
-from rag.ingest.pdf import extract_pages_via_gemini
+from rag.ingest.pdf import extract_pages
 from rag.log import get_logger
-from rag.providers.gemini import GeminiProvider
+from rag.providers.base import LLMProvider
 from rag.repositories.base import ChunkRepository
 from rag.trace import TRACE_LOG_KEY
 
@@ -49,33 +46,11 @@ logger = get_logger(__name__)
 IngestStatus = Literal["ingested", "already_done", "reingested"]
 
 CancelCheck = Callable[[], Awaitable[bool]]
-"""Optional callable invoked at pipeline checkpoints. Returning True
-aborts the run with :class:`UploadCancelledError`."""
-
 ProgressCallback = Callable[[str, str], Awaitable[None]]
-"""Optional callable invoked when the pipeline reaches a new stage.
-
-Signature: ``(stage: str, message: str) -> None``. ``stage`` is a stable
-machine-readable identifier (``extracting`` / ``embedding`` / etc.);
-``message`` is a reviewer-readable human description that the UI shows
-verbatim in the progress indicator. Used by the feature-003 upload route
-to push real progress to the browser during a multi-minute ingest.
-"""
 
 
 class UploadCancelledError(Exception):
-    """Raised when an ingest run is aborted via the cancel-check callback.
-
-    Carries an attribute ``phase`` naming the pipeline checkpoint at which
-    the cancellation was detected (``"after_extraction"``,
-    ``"between_embedding_batches"``, ``"before_persistence"``). The upload
-    route (feature 003) catches this exception, logs ``upload_cancelled``,
-    and lets it propagate through any open transaction so it rolls back.
-
-    Defined here rather than in ``rag.ui`` because the pipeline is what
-    raises it; importers may use either ``rag.ingest.pipeline`` or the
-    re-export from ``rag.ingest``.
-    """
+    """Raised when an ingest run is aborted via the cancel-check callback."""
 
     def __init__(self, *, phase: str) -> None:
         self.phase = phase
@@ -101,7 +76,6 @@ async def _check_cancelled(
     phase: str,
     trace_id: str,
 ) -> None:
-    """Raise :class:`UploadCancelledError` if the caller signaled cancel."""
     if cancel_check is None:
         return
     if await cancel_check():
@@ -117,7 +91,6 @@ async def _emit_progress(
     stage: str,
     message: str,
 ) -> None:
-    """Invoke the progress callback if one was supplied; otherwise no-op."""
     if callback is not None:
         await callback(stage, message)
 
@@ -126,7 +99,7 @@ async def ingest_pdf_core(
     *,
     pdf_bytes: bytes,
     display_filename: str,
-    gemini: GeminiProvider,
+    gemini: LLMProvider,
     repo: ChunkRepository,
     settings: Settings,
     trace_id: str,
@@ -137,15 +110,8 @@ async def ingest_pdf_core(
 ) -> IngestOutcome:
     """Run the ingest pipeline against in-memory PDF bytes.
 
-    Used by both the CLI (via :func:`ingest_pdf`) and the upload route
-    (feature 003), which passes a caller-owned ``connection`` so the
-    whole pipeline runs inside one transaction.
-
-    ``cancel_check``, when supplied, is awaited at three checkpoints:
-    after page extraction, between each embedding batch, and immediately
-    before the final ``add_chunks`` call. A truthy return raises
-    :class:`UploadCancelledError`, which propagates through any open
-    transaction (rolling it back).
+    ``gemini``: named for backward compatibility with older call sites
+    but accepts any :class:`LLMProvider` (GeminiProvider, OpenAIProvider, etc.).
     """
     started = time.perf_counter()
 
@@ -203,16 +169,16 @@ async def ingest_pdf_core(
             elapsed_s=elapsed,
         )
 
-    # Extract pages.
+    # Extract pages using whatever provider was passed.
     await _emit_progress(
         progress_callback,
         "extracting",
-        "Extracting pages with Gemini File API…",
+        "Extracting pages from PDF…",
     )
-    pages = await extract_pages_via_gemini(
+    pages = await extract_pages(
         pdf_bytes,
-        gemini=gemini,
-        concurrency=settings.RAG_GEMINI_CONCURRENCY,
+        provider=gemini,
+        concurrency=settings.RAG_PROVIDER_CONCURRENCY,
     )
     logger.info(
         "pages_extracted",
@@ -249,8 +215,6 @@ async def ingest_pdf_core(
 
     # Embed in batches.
     batch_size = settings.RAG_EMBED_BATCH
-    import math
-
     n_batches = max(1, math.ceil(len(chunks) / batch_size))
     for batch_idx, batch_start in enumerate(range(0, len(chunks), batch_size)):
         await _emit_progress(
@@ -280,7 +244,6 @@ async def ingest_pdf_core(
     await _check_cancelled(cancel_check, "before_persistence", trace_id)
     await _emit_progress(progress_callback, "persisting", "Saving to vector store…")
 
-    # Persist.
     inserted = await repo.add_chunks(
         chunks,
         source_document_id=source_id,
@@ -312,7 +275,7 @@ async def ingest_pdf_core(
 async def ingest_pdf(
     pdf_path: Path,
     *,
-    gemini: GeminiProvider,
+    gemini: LLMProvider,
     repo: ChunkRepository,
     settings: Settings,
     trace_id: str,
@@ -320,14 +283,7 @@ async def ingest_pdf(
 ) -> IngestOutcome:
     """Run the ingest pipeline against the file at ``pdf_path``.
 
-    Path-based wrapper around :func:`ingest_pdf_core`. Reads bytes from
-    disk, validates the path/extension, and delegates with
-    ``connection=None`` and ``cancel_check=None`` so behavior is identical
-    to the pre-feature-003 CLI ingest path.
-
-    If ``force=True`` and a prior ``source_document`` row exists with the
-    same ``file_hash``, drop it (CASCADE removes its chunks) and re-ingest
-    from scratch. Returns status ``"reingested"`` in that case.
+    ``gemini``: named for backward compatibility but accepts any LLMProvider.
     """
     if not pdf_path.exists():
         raise FileNotFoundError(f"PDF not found: {pdf_path}")

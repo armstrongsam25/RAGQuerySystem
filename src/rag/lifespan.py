@@ -1,18 +1,4 @@
-"""FastAPI lifespan: bring the app to a healthy state on startup.
-
-Order of operations (carried forward from feature 001 + extended in
-feature 002 to wire providers + repository onto ``app.state``):
-
-    1. configure_logging
-    2. wait_for_db
-    3. run_pending migrations (now picks up migrations/0002_query_path.sql too)
-    4. verify EMBEDDING_DIM matches the schema's `chunk.embedding` column
-    5. open AsyncConnectionPool
-    6. instantiate ChunkRepository + GeminiProvider and stash them on
-       app.state for routes to depend on
-    7. yield
-    8. close the pool on shutdown
-"""
+"""FastAPI lifespan: bring the app to a healthy state on startup."""
 
 from __future__ import annotations
 
@@ -29,14 +15,12 @@ from rag.config import Settings, get_settings
 from rag.db import make_pool
 from rag.log import configure_logging, get_logger
 from rag.migrations import run_pending
-from rag.providers import GeminiProvider, Providers
+from rag.providers import LocalEmbeddingProvider, LocalEmbeddingProviderEmbedder, OpenAIProvider, Providers
 from rag.repositories import PgVectorChunkRepository
 from rag.ui.upload_jobs import UploadJob
 
 logger = get_logger(__name__)
 
-# Project root contains a top-level `migrations/` directory. This file
-# lives at <root>/src/rag/lifespan.py — two parents up.
 _MIGRATIONS_DIR = Path(__file__).resolve().parents[2] / "migrations"
 
 
@@ -95,6 +79,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     logger.info(
         "startup_begin",
         extra={
+            "base_url": settings.LLM_BASE_URL,
             "embedding_model": settings.EMBEDDING_MODEL,
             "generation_model": settings.GENERATION_MODEL,
             "embedding_dim": settings.EMBEDDING_DIM,
@@ -104,7 +89,6 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
     dsn = settings.database_dsn
 
-    # Run sync I/O off the event loop so we don't block the ASGI worker.
     await asyncio.to_thread(_wait_for_db, dsn)
     schema_version = await asyncio.to_thread(run_pending, dsn, _MIGRATIONS_DIR)
     await asyncio.to_thread(_verify_embedding_dim, dsn, settings.EMBEDDING_DIM)
@@ -112,29 +96,24 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     pool = make_pool(dsn)
     await pool.open(wait=True, timeout=10)
 
-    # PDF storage dir — created at startup so a read-only filesystem fails
-    # loudly here instead of on the first upload's commit-then-write path.
     pdf_dir = settings.RAG_PDF_STORAGE_DIR
     pdf_dir.mkdir(parents=True, exist_ok=True)
     logger.info("pdf_storage_ready", extra={"path": str(pdf_dir.resolve())})
 
-    # Feature 002 wiring: repository + providers behind clean abstractions.
     chunk_repo = PgVectorChunkRepository(pool)
-    gemini = GeminiProvider(settings)
-    providers = Providers(embedder=gemini, generator=gemini, judge=gemini)
+    # Embedding: local CPU model (no API key needed)
+    local_embed = LocalEmbeddingProvider(settings)
+    embedder = LocalEmbeddingProviderEmbedder(local_embed)
+    # Generation + judge: vLLM / OpenAI-compatible API
+    llm = OpenAIProvider(settings)
+    providers = Providers(embedder=embedder, generator=llm, judge=llm)
 
     app.state.pool = pool
     app.state.schema_version = schema_version
     app.state.settings = settings
     app.state.chunk_repo = chunk_repo
     app.state.providers = providers
-    # Process-wide upload guard (feature 003 spec FR-028 / R-003). One worker
-    # per process today; a multi-worker deployment would need a Postgres
-    # advisory lock instead — see quickstart.md "Future work" section.
     app.state.upload_lock = asyncio.Lock()
-    # Background-task registry for the progress-pushing upload flow. Keys
-    # are short-lived task_ids (one per upload). Cleared by the status
-    # endpoint after returning a terminal partial.
 
     upload_jobs: dict[str, UploadJob] = {}
     app.state.upload_jobs = upload_jobs

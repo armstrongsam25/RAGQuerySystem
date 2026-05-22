@@ -426,7 +426,7 @@ async def test_progress_callback_is_invoked_with_stage_updates(
     async def _ingest_reports_progress(**kwargs):
         cb = kwargs["progress_callback"]
         if cb is not None:
-            await cb("extracting", "Extracting pages with Gemini File API…")
+            await cb("extracting", "Extracting pages from PDF…")
             await cb("embedding", "Embedding chunks (batch 1/2)…")
             await cb("persisting", "Saving to vector store…")
         progress_calls.append(("done", "stub finished"))

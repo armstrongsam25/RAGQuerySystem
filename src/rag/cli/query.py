@@ -1,9 +1,4 @@
-"""`rag query "<question>"` — real implementation (feature 002).
-
-Calls the same `answer_question` orchestrator the HTTP endpoint uses, so
-the same path is exercised whether the reviewer uses curl, the UI, or the
-terminal (spec FR-024).
-"""
+"""`rag query "<question>"` — real implementation (feature 002)."""
 
 from __future__ import annotations
 
@@ -17,7 +12,9 @@ from rag.config import Settings, get_settings
 from rag.db import make_pool
 from rag.log import configure_logging, get_logger
 from rag.providers import (
-    GeminiProvider,
+    LocalEmbeddingProvider,
+    LocalEmbeddingProviderEmbedder,
+    OpenAIProvider,
     Providers,
     UpstreamProviderError,
 )
@@ -78,8 +75,10 @@ async def _run(
     await pool.open(wait=True, timeout=10)
     try:
         repo = PgVectorChunkRepository(pool)
-        gemini = GeminiProvider(settings)
-        providers = Providers(embedder=gemini, generator=gemini, judge=gemini)
+        local_embed = LocalEmbeddingProvider(settings)
+        embedder = LocalEmbeddingProviderEmbedder(local_embed)
+        llm = OpenAIProvider(settings)
+        providers = Providers(embedder=embedder, generator=llm, judge=llm)
         return await answer_question(
             question,
             repo=repo,
@@ -115,5 +114,4 @@ def _render_human(response: QueryResponse) -> None:
         typer.secho(f"NO DOCUMENTS  (trace={short_trace})", fg=typer.colors.YELLOW, bold=True)
         typer.echo(response.message)
         return
-    # Should be unreachable thanks to the discriminated union.
     typer.echo(json_lib.dumps(response.model_dump(), indent=2))

@@ -44,8 +44,8 @@ from psycopg_pool import AsyncConnectionPool
 from rag.config import Settings
 from rag.ingest import UploadCancelledError, ingest_pdf_core
 from rag.log import get_logger
-from rag.providers.base import Providers, UpstreamProviderError
-from rag.providers.gemini import GeminiProvider, RateLimitedError
+from rag.providers.base import LLMProvider, Providers, UpstreamProviderError
+from rag.providers.gemini import RateLimitedError
 from rag.query.pipeline import answer_question
 from rag.query.responses import (
     QueryAnswered,
@@ -481,11 +481,9 @@ def register_ui_routes(app: FastAPI) -> None:
         # the POST handler returns.
         pdf_bytes = await pdf.read()
         display_filename = pdf.filename or "upload.pdf"
-        # The upload task needs the Gemini-specific extract_page_text method,
-        # not just the LLMProvider surface. In production the embedder IS the
-        # GeminiProvider; tests inject a compatible fake. Cast at the boundary
-        # so the type system understands the contract.
-        gemini = cast(GeminiProvider, providers.embedder)
+        # The upload task needs extract_page_text, which all providers
+        # support (Gemini via File API, OpenAI via pypdf fallback).
+        provider = cast(LLMProvider, providers.embedder)
 
         job = UploadJob(task_id=trace_id, filename=display_filename)
         upload_jobs[trace_id] = job
@@ -495,7 +493,7 @@ def register_ui_routes(app: FastAPI) -> None:
                 job=job,
                 pdf_bytes=pdf_bytes,
                 display_filename=display_filename,
-                gemini=gemini,
+                provider=provider,
                 repo=repo,
                 settings=settings,
                 pool=pool,
@@ -662,7 +660,7 @@ async def _run_upload_task(
     job: UploadJob,
     pdf_bytes: bytes,
     display_filename: str,
-    gemini: GeminiProvider,
+    provider: LLMProvider,
     repo: ChunkRepository,
     settings: Settings,
     pool: AsyncConnectionPool,
@@ -716,7 +714,7 @@ async def _run_upload_task(
                 outcome = await ingest_pdf_core(
                     pdf_bytes=pdf_bytes,
                     display_filename=display_filename,
-                    gemini=gemini,
+                    gemini=provider,
                     repo=repo,
                     settings=settings,
                     trace_id=trace_id,
@@ -803,7 +801,7 @@ async def _run_upload_task(
             "upload_failed",
             extra={
                 TRACE_LOG_KEY: trace_id,
-                "cause": "embedding_failed" if exc.provider == "gemini" else "persistence_failed",
+                "cause": "embedding_failed" if exc.provider != "persistence" else "persistence_failed",
                 "provider": exc.provider,
                 "error": str(exc.cause),
             },

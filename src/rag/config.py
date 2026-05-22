@@ -17,11 +17,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
-    """All env-driven configuration for the app.
-
-    `extra="forbid"` makes typo'd direct-kwarg construction fail loudly
-    (see notes on env-var-typo behavior in research R-003 from feature 001).
-    """
+    """All env-driven configuration for the app."""
 
     model_config = SettingsConfigDict(
         env_file=".env",
@@ -30,43 +26,35 @@ class Settings(BaseSettings):
         case_sensitive=True,
     )
 
-    # --- Gemini -----------------------------------------------------------
-    GEMINI_API_KEY: SecretStr = Field(
+    # --- LLM Provider -----------------------------------------------------
+    LLM_API_KEY: SecretStr = Field(
         ...,
         min_length=1,
-        description=(
-            "Gemini API key. Required. Used for PDF extraction (File API), "
-            "embeddings (gemini-embedding-001), and generation (Gemini 2.5 Flash)."
-        ),
+        description="API key for the LLM provider (OpenAI-compatible, e.g. vLLM).",
+    )
+    GEMINI_API_KEY: SecretStr = Field(
+        default=SecretStr(""),
+        description="Legacy — only used by GeminiProvider. Kept for test compat.",
+    )
+    LLM_BASE_URL: str = Field(
+        default="https://api.openai.com/v1",
+        min_length=1,
+        description="Base URL for the OpenAI-compatible API endpoint.",
     )
     EMBEDDING_MODEL: str = Field(
-        default="gemini-embedding-001",
+        default="text-embedding-3-small",
         min_length=1,
-        description=(
-            "Gemini embedding model id (constitution Art IV.5 v1.0.3 — bumped "
-            "from text-embedding-004 on 2026-05-12 after Google retired that "
-            "model id from the v1beta API). Output dimensionality is forced to "
-            "EMBEDDING_DIM (768) to match the vector(768) schema column."
-        ),
+        description="Embedding model id (must exist at the configured LLM_BASE_URL).",
     )
     GENERATION_MODEL: str = Field(
-        default="gemini-2.5-flash",
+        default="gpt-4o",
         min_length=1,
-        description=(
-            "Gemini generation model id. Constitution v1.0.2 Art IV.6 pins "
-            "`gemini-2.5-flash` (bumped from 2.0 on 2026-05-12 after Google "
-            "retired the 2.0 ID for new keys). Override via env if needed."
-        ),
+        description="Generation (chat completion) model id.",
     )
     GROUNDING_JUDGE_MODEL: str = Field(
-        default="gemini-2.5-flash-lite",
+        default="gpt-4o-mini",
         min_length=1,
-        description=(
-            "Gemini model id used by the grounding judge (LLM-as-judge from "
-            "spec FR-012). Defaults to `gemini-2.5-flash-lite` — cheaper than "
-            "the generation model since the judge only emits a small JSON "
-            "verdict. Uses the same GEMINI_API_KEY as embedding / generation."
-        ),
+        description="Model id for the grounding judge. Defaults to a cheaper model.",
     )
 
     # --- Database ---------------------------------------------------------
@@ -85,9 +73,7 @@ class Settings(BaseSettings):
         gt=0,
         description=(
             "Pgvector dimensionality. Verified at startup against the "
-            "`chunk.embedding` column's atttypmod (feature 001 R-004). Also "
-            "passed to `gemini-embedding-001` as `output_dimensionality` so "
-            "the embedding response matches the schema column."
+            "`chunk.embedding` column's atttypmod."
         ),
     )
 
@@ -96,65 +82,47 @@ class Settings(BaseSettings):
         default=5,
         gt=0,
         le=20,
-        description="Default top-k for retrieval. Per spec FR-009 + plan defaults.",
+        description="Default top-k for retrieval.",
     )
     RAG_SIM_FLOOR: float = Field(
         default=0.4,
         ge=0.0,
         le=1.0,
-        description=(
-            "Cosine-similarity coarse pre-filter (spec FR-010). The LLM-as-judge "
-            "from FR-012 is the real refusal gate; this is just the obvious-miss filter."
-        ),
+        description="Cosine-similarity coarse pre-filter.",
     )
     RAG_EMBED_BATCH: int = Field(
         default=32,
         gt=0,
         le=100,
-        description="Embedding batch size for ingest. Plan §Technical Context.",
+        description="Embedding batch size for ingest.",
     )
-    RAG_GEMINI_CONCURRENCY: int = Field(
+    RAG_PROVIDER_CONCURRENCY: int = Field(
         default=2,
         gt=0,
         le=16,
-        description=(
-            "Bounded concurrency for per-page Gemini File API calls (research R-017). "
-            "Default 2 keeps free-tier rate limits comfortable; bump to 4-8 if you've "
-            "enabled billing and want faster ingest."
-        ),
+        description="Bounded concurrency for per-page LLM calls.",
     )
     RAG_QUOTED_SPAN_MAX: int = Field(
         default=400,
         gt=0,
         le=1000,
-        description="Per-citation quoted-span cap in API responses (spec FR-008 + research R-016).",
+        description="Per-citation quoted-span cap in API responses.",
     )
     RAG_QUESTION_MAX_LEN: int = Field(
         default=1000,
         gt=0,
         le=10000,
-        description="Question length cap; matches contracts/query.yaml maxLength.",
+        description="Question length cap.",
     )
     RAG_MAX_UPLOAD_BYTES: int = Field(
         default=104857600,  # 100 MiB
         gt=0,
         le=1073741824,  # 1 GiB sanity bound
-        description=(
-            "Maximum size of an uploaded PDF in bytes (feature 003 spec FR-015). "
-            "Default 100 MiB. Enforced before any extraction or embedding work; "
-            "exceeded uploads return HTTP 413 with the cap surfaced in the error "
-            "message in both bytes and MB for reviewer-readable rejection."
-        ),
+        description="Maximum size of an uploaded PDF in bytes.",
     )
     RAG_PDF_STORAGE_DIR: Path = Field(
         default=Path("data/pdfs"),
-        description=(
-            "Directory where successfully-ingested PDF bytes are persisted so "
-            "the UI can serve the original document back to the user via "
-            "GET /ui/pdf/{file_hash}. Files are named {file_hash}.pdf and "
-            "deleted whenever their source_document row is deleted (clear or "
-            "replace). Created at app startup."
-        ),
+        description="Directory where ingested PDF bytes are persisted.",
     )
 
     # --- Logging ----------------------------------------------------------

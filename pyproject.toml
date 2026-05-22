@@ -22,6 +22,8 @@ dependencies = [
     "tiktoken>=0.7",
     "python-multipart>=0.0.9",
     "numpy>=1.26",
+    "sentence-transformers>=5.5.1",
+    "fastembed>=0.8.0",
 ]
 
 [dependency-groups]
