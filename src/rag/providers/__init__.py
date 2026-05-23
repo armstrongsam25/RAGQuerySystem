@@ -39,6 +39,27 @@ class LocalEmbeddingProviderEmbedder:
     async def embed(self, texts: list[str]) -> list[list[float]]:
         return await self._embedder.embed(texts)
 
+    async def extract_page_text(self, pdf_bytes: bytes, page_number: int) -> str:
+        """Extract a single page's plaintext using pypdf (local, no API).
+
+        Delegates to pypdf's built-in text extraction. Useful when the
+        CLIIngest pipeline passes a LocalEmbeddingProviderEmbedder as the
+        ``gemini`` parameter.
+        """
+        import asyncio
+
+        import pypdf
+        import io
+
+        def _extract() -> str:
+            reader = pypdf.PdfReader(io.BytesIO(pdf_bytes))
+            if page_number < 1 or page_number > len(reader.pages):
+                return ""
+            text = reader.pages[page_number - 1].extract_text()
+            return text or ""
+
+        return await asyncio.to_thread(_extract)
+
     async def complete(self, *, system: str, user: str, model: str | None = None) -> str:
         raise NotImplementedError("LocalEmbeddingProviderEmbedder only supports embed")
 

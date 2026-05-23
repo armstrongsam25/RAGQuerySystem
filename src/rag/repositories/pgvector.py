@@ -30,6 +30,13 @@ from psycopg_pool import AsyncConnectionPool
 from rag.repositories.base import ChunkRecord, RetrievedChunk, SourceDocumentInfo
 
 
+async def _ensure_vector_registered(conn: AsyncConnection) -> None:
+    """Register pgvector type adapters on *conn* if not already done."""
+    from pgvector.psycopg import register_vector_async
+
+    await register_vector_async(conn)
+
+
 class PgVectorChunkRepository:
     """Production chunk repository using pgvector + psycopg async pool."""
 
@@ -41,15 +48,19 @@ class PgVectorChunkRepository:
         self,
         connection: AsyncConnection | None,
     ) -> AsyncIterator[AsyncConnection]:
-        """Yield a usable connection.
+        """Yield a usable connection with pgvector adapters registered.
 
         If the caller passed one, use it as-is (no enter/exit on the pool).
         Otherwise borrow one from the pool for the duration of the block.
+        Registers pgvector type adapters on the connection so Vector
+        values can be passed to SQL placeholders.
         """
         if connection is not None:
+            await _ensure_vector_registered(connection)
             yield connection
         else:
             async with self._pool.connection() as conn:
+                await _ensure_vector_registered(conn)
                 yield conn
 
     async def add_chunks(

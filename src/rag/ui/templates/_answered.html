@@ -1,13 +1,26 @@
 <div class="status-card status-answered">
-  <p class="answer">{{ response.answer }}</p>
+  <div class="answer">
+    {{ response.answer | markdown | safe }}
+  </div>
 
-  <h3>Citations</h3>
-  <ul class="citations">
+  <hr class="citations-divider">
+  <h3>Sources</h3>
+  <ol class="citations">
     {% for c in response.citations %}
-    <li class="citation">
+    <li class="citation" id="cite-{{ c.ref_number }}" value="{{ c.ref_number }}">
+      {% if c.source_file_hash %}
+      <a class="citation-link"
+         href="/ui/view-pdf/{{ c.source_file_hash }}?page={{ c.page_number }}&amp;highlight={{ c.quoted_span | urlencode }}"
+         target="_blank"
+         rel="noopener"
+         title="Open PDF at page {{ c.page_number }} with highlighted text">
+        <span class="page-badge">p. {{ c.page_number }}</span>
+      </a>
+      {% else %}
+      <span class="page-badge">p. {{ c.page_number }}</span>
+      {% endif %}
       <details class="citation-details">
         <summary>
-          <span class="page-badge">p. {{ c.page_number }}</span>
           <span class="citation-summary-hint">show quote</span>
         </summary>
         <blockquote>
@@ -16,7 +29,7 @@
       </details>
     </li>
     {% endfor %}
-  </ul>
+  </ol>
 </div>
 <!-- trace_id: {{ response.trace_id }} -->
 <!-- model: {{ response.model }} -->

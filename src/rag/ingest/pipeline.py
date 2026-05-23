@@ -35,6 +35,7 @@ from psycopg import AsyncConnection
 
 from rag.config import Settings
 from rag.ingest.chunker import chunk_pages
+from rag.ingest.docx import extract_docx_pages
 from rag.ingest.pdf import extract_pages
 from rag.log import get_logger
 from rag.providers.base import LLMProvider
@@ -108,7 +109,11 @@ async def ingest_pdf_core(
     cancel_check: CancelCheck | None = None,
     progress_callback: ProgressCallback | None = None,
 ) -> IngestOutcome:
-    """Run the ingest pipeline against in-memory PDF bytes.
+    """Run the ingest pipeline against in-memory PDF or DOCX bytes.
+
+    Dispatches based on ``display_filename`` extension:
+    - ``.pdf`` → ``extract_pages`` (pypdf or Gemini vision)
+    - ``.docx`` → ``extract_docx_pages`` (python-docx)
 
     ``gemini``: named for backward compatibility with older call sites
     but accepts any :class:`LLMProvider` (GeminiProvider, OpenAIProvider, etc.).
@@ -169,17 +174,22 @@ async def ingest_pdf_core(
             elapsed_s=elapsed,
         )
 
-    # Extract pages using whatever provider was passed.
-    await _emit_progress(
-        progress_callback,
-        "extracting",
-        "Extracting pages from PDF…",
-    )
-    pages = await extract_pages(
-        pdf_bytes,
-        provider=gemini,
-        concurrency=settings.RAG_PROVIDER_CONCURRENCY,
-    )
+    # Extract pages — dispatch on file extension.
+    _fn_lower = display_filename.lower()
+    _ext_msg = "Extracting pages from document…"
+    await _emit_progress(progress_callback, "extracting", _ext_msg)
+
+    if _fn_lower.endswith(".docx"):
+        pages = await extract_docx_pages(
+            pdf_bytes,
+            concurrency=settings.RAG_PROVIDER_CONCURRENCY,
+        )
+    else:
+        pages = await extract_pages(
+            pdf_bytes,
+            provider=gemini,
+            concurrency=settings.RAG_PROVIDER_CONCURRENCY,
+        )
     logger.info(
         "pages_extracted",
         extra={
@@ -281,16 +291,17 @@ async def ingest_pdf(
     trace_id: str,
     force: bool = False,
 ) -> IngestOutcome:
-    """Run the ingest pipeline against the file at ``pdf_path``.
+    """Run the ingest pipeline against the file at ``pdf_path`` (.pdf or .docx).
 
     ``gemini``: named for backward compatibility but accepts any LLMProvider.
     """
     if not pdf_path.exists():
-        raise FileNotFoundError(f"PDF not found: {pdf_path}")
+        raise FileNotFoundError(f"Document not found: {pdf_path}")
     if not pdf_path.is_file():
         raise ValueError(f"not a regular file: {pdf_path}")
-    if pdf_path.suffix.lower() != ".pdf":
-        raise ValueError(f"not a PDF (expected .pdf extension): {pdf_path}")
+    suffix = pdf_path.suffix.lower()
+    if suffix not in (".pdf", ".docx"):
+        raise ValueError(f"unsupported file type {suffix!r} (expected .pdf or .docx): {pdf_path}")
 
     pdf_bytes = pdf_path.read_bytes()
     return await ingest_pdf_core(

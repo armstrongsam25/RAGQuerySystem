@@ -46,16 +46,19 @@ class Citation(BaseModel):
 
     chunk_id: UUID
     source_document_id: UUID
+    source_file_hash: str = ""  # for constructing PDF viewer links
     page_number: int = Field(ge=1)
     quoted_span: str = Field(min_length=1, max_length=401)  # 400 + ellipsis
     truncated: bool = False
+    # Reference number for inline citation: [1], [2], etc.
+    ref_number: int = 0
 
 
 class QueryAnswered(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     status: Literal["answered"] = "answered"
-    answer: str = Field(min_length=1)
+    answer: str = Field(min_length=1, max_length=20000)
     citations: list[Citation] = Field(min_length=1)
     model: str
     trace_id: str

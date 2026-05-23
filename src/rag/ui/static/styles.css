@@ -1573,3 +1573,46 @@ footer a:hover {
 [data-theme="dark"] .msg-user {
   box-shadow: 0 1px 2px color-mix(in srgb, var(--navy-900) 50%, transparent);
 }
+
+/* ---- Inline citation links inside answer text ---- */
+
+.cite-inline {
+  display: inline;
+  text-decoration: none;
+  font-weight: 600;
+  font-size: 0.82em;
+  color: var(--accent);
+  padding: 0 0.15em;
+  border-radius: 3px;
+  transition: background 0.15s ease;
+  white-space: nowrap;
+}
+
+.cite-inline:hover {
+  background: color-mix(in srgb, var(--accent) 15%, transparent);
+  text-decoration: underline;
+}
+
+.cite-group {
+  white-space: nowrap;
+}
+
+.cite-group .cite-inline + .cite-inline {
+  margin-left: 0.1em;
+}
+
+/* Highlight animation when jumping to a citation */
+.citation:target {
+  animation: cite-flash 1.5s ease-out;
+  border-radius: 6px;
+}
+
+@keyframes cite-flash {
+  0% { background: color-mix(in srgb, var(--accent) 25%, transparent); }
+  100% { background: transparent; }
+}
+
+/* Make citations in the Sources list scroll into view nicely */
+.citation {
+  scroll-margin-top: 80px;
+}

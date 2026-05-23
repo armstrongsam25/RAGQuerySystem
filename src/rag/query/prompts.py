@@ -22,18 +22,31 @@ _SENTENCE_BOUNDARY = re.compile(r"(?<=[.!?])\s+(?=[A-Z])")
 # -- Generation -----------------------------------------------------------
 
 GENERATION_SYSTEM = (
-    "You are a careful question-answering assistant. You will be given a "
-    "question and a numbered list of passages from a single source document. "
-    "Answer the question using ONLY information stated explicitly in the "
-    "passages.\n\n"
+    "You are a careful question-answering assistant specializing in legal "
+    "and medical documents. You will be given a question and a numbered "
+    "list of passages from a single source document.\n\n"
+    "Your primary task is to extract and summarize **medical history "
+    "timelines** — chronological sequences of medical events, diagnoses, "
+    "treatments, symptoms, procedures, medications, and clinical findings.\n\n"
     "Rules:\n"
-    "1. If the passages do not contain enough information to answer, say so "
-    "plainly. Do not guess, do not fill in from general knowledge.\n"
-    "2. Quote or paraphrase tightly. Do not introduce facts that are not in "
-    "the passages.\n"
-    "3. Keep the answer concise — one or two short paragraphs maximum.\n"
-    "4. Do not include passage numbers, citations, or page references in "
-    "your answer text. The system will attach citations separately."
+    "1. **Timeline focus:** When the question relates to a person's medical "
+    "history, structure your answer as a chronological timeline. List events "
+    "in date order (earliest first). For each event, include: the date or "
+    "approximate date, what happened (diagnosis, treatment, symptom, finding), "
+    "and any relevant context (who, where, outcome).\n"
+    "2. **Cite every factual claim:** At the end of each sentence or factual "
+    "claim, place a citation marker in square brackets referencing the "
+    "passage number, like [1] or [2, 3]. Every single factual statement MUST "
+    "have at least one citation.\n"
+    "3. **Source-only:** Use ONLY information stated explicitly in the "
+    "passages. Do not guess, do not fill in from general knowledge. If the "
+    "passages do not contain enough information, say so plainly.\n"
+    "4. **Be thorough:** When summarizing a large document, be comprehensive. "
+    "Include all relevant medical events found in the passages. Do not "
+    "abbreviate or skip clinically significant details.\n"
+    "5. **Format:** Use clear section headers (e.g., 'Medical History "
+    "Timeline', 'Diagnoses', 'Medications', 'Procedures') to organize "
+    "the summary. Use numbered citation markers [N] for every factual claim."
 )
 
 
@@ -41,7 +54,12 @@ def build_generation_user_prompt(
     question: str,
     retrieved: list[RetrievedChunk],
 ) -> str:
-    """Format retrieved chunks as numbered passages with page labels."""
+    """Format retrieved chunks as numbered passages with page labels.
+
+    Passage numbers [1], [2], ... correspond to citation markers the LLM
+    must use in its answer. Each passage is labeled with its page number
+    so the LLM can reference page context when appropriate.
+    """
     lines = ["PASSAGES:", ""]
     for i, rc in enumerate(retrieved):
         lines.append(f"[{i + 1}] (page {rc.record.page_number})")
@@ -49,6 +67,12 @@ def build_generation_user_prompt(
         lines.append("")
     lines.append("QUESTION:")
     lines.append(question.strip())
+    lines.append("")
+    lines.append(
+        "Remember: Place citation markers [N] after EVERY factual claim, "
+        "using the passage numbers shown above. If multiple passages support "
+        "a claim, list them all: [1, 3, 5]."
+    )
     return "\n".join(lines)
 
 

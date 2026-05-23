@@ -1,4 +1,4 @@
-"""`rag ingest <pdf_path>` — real implementation (feature 002)."""
+"""`rag ingest <path>` — ingest PDF or DOCX documents."""
 
 from __future__ import annotations
 
@@ -25,9 +25,9 @@ logger = get_logger(__name__)
 
 
 def ingest(
-    pdf_path: Path = typer.Argument(
+    path: Path = typer.Argument(
         ...,
-        help="Path to the PDF file to ingest.",
+        help="Path to the document file to ingest (.pdf or .docx).",
     ),
     concurrency: int = typer.Option(
         2,
@@ -44,13 +44,13 @@ def ingest(
         "--force",
         "-f",
         help=(
-            "Overwrite any prior ingest of this PDF (by file_hash). Drops the "
+            "Overwrite any prior ingest of this document (by file_hash). Drops the "
             "existing source_document row + its chunks via ON DELETE CASCADE, "
             "then re-ingests from scratch."
         ),
     ),
 ) -> None:
-    """Ingest a PDF: extract text per page, chunk, embed, and persist."""
+    """Ingest a PDF or DOCX: extract text per page, chunk, embed, and persist."""
     settings = get_settings()
     configure_logging(settings.LOG_LEVEL)
 
@@ -59,7 +59,7 @@ def ingest(
 
     trace_id = new_trace_id()
     try:
-        outcome = asyncio.run(_run(pdf_path, settings, trace_id, force=force))
+        outcome = asyncio.run(_run(path, settings, trace_id, force=force))
     except FileNotFoundError as exc:
         typer.secho(f"error: {exc}", fg=typer.colors.RED, err=True)
         raise typer.Exit(code=1) from exc
@@ -107,18 +107,18 @@ def ingest(
     elif outcome.status == "reingested":
         typer.echo(
             f"Re-ingested (force): {outcome.chunks_inserted} chunks across "
-            f"{outcome.pages} pages from {pdf_path.name} "
+            f"{outcome.pages} pages from {path.name} "
             f"({outcome.elapsed_s:.1f}s, trace={trace_id[:8]})"
         )
     else:
         typer.echo(
             f"Ingested {outcome.chunks_inserted} chunks across {outcome.pages} pages "
-            f"from {pdf_path.name} ({outcome.elapsed_s:.1f}s, trace={trace_id[:8]})"
+            f"from {path.name} ({outcome.elapsed_s:.1f}s, trace={trace_id[:8]})"
         )
 
 
 async def _run(
-    pdf_path: Path,
+    path: Path,
     settings: Settings,
     trace_id: str,
     *,
@@ -130,10 +130,9 @@ async def _run(
         repo = PgVectorChunkRepository(pool)
         local_embed = LocalEmbeddingProvider(settings)
         embedder = LocalEmbeddingProviderEmbedder(local_embed)
-        llm = OpenAIProvider(settings)
         return await ingest_pdf(
-            pdf_path,
-            gemini=embedder,  # parameter name kept for API compat; only embed used for ingest
+            path,
+            gemini=embedder,
             repo=repo,
             settings=settings,
             trace_id=trace_id,
