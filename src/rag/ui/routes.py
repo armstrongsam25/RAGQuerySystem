@@ -39,13 +39,14 @@ from fastapi import Depends, FastAPI, File, Form, HTTPException, Request, Upload
 from fastapi.responses import FileResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
+from markdown_it import MarkdownIt
 from psycopg_pool import AsyncConnectionPool
 
 from rag.config import Settings
 from rag.ingest import UploadCancelledError, ingest_pdf_core
 from rag.log import get_logger
-from rag.providers.base import Providers, UpstreamProviderError
-from rag.providers.gemini import GeminiProvider, RateLimitedError
+from rag.providers.base import LLMProvider, Providers, UpstreamProviderError
+from rag.providers.gemini import RateLimitedError
 from rag.query.pipeline import answer_question
 from rag.query.responses import (
     QueryAnswered,
@@ -55,7 +56,7 @@ from rag.query.responses import (
 from rag.repositories.base import ChunkRepository, SourceDocumentInfo
 from rag.trace import TRACE_LOG_KEY, new_trace_id
 from rag.ui.upload_jobs import UploadJob
-from rag.ui.upload_validate import InvalidPDFError, validate_pdf_magic
+from rag.ui.upload_validate import InvalidFileError, validate_file_magic, validate_pdf_magic
 
 _FILE_HASH_RE = re.compile(r"[0-9a-f]{64}")
 
@@ -63,7 +64,9 @@ logger = get_logger(__name__)
 
 _TEMPLATES_DIR = Path(__file__).resolve().parent / "templates"
 _STATIC_DIR = Path(__file__).resolve().parent / "static"
+_md = MarkdownIt()
 _templates = Jinja2Templates(directory=str(_TEMPLATES_DIR))
+_templates.env.filters["markdown"] = lambda text: _md.render(text or "")
 
 
 def _get_chunk_repo(request: Request) -> ChunkRepository:
@@ -241,6 +244,9 @@ def register_ui_routes(app: FastAPI) -> None:
         inner partial that fills the slot. See base.html → onChatConfigRequest.
         """
         trace_id = new_trace_id()
+        # Resolve the current document's file_hash for PDF viewer links in citations.
+        docs = await repo.list_source_documents()
+        source_file_hash = docs[0].file_hash if docs else ""
         try:
             response = await answer_question(
                 question,
@@ -248,6 +254,7 @@ def register_ui_routes(app: FastAPI) -> None:
                 providers=providers,
                 settings=settings,
                 trace_id=trace_id,
+                source_file_hash=source_file_hash,
             )
         except ValueError as exc:
             # Log fidelity preserved: the underlying message stays in the log
@@ -349,6 +356,47 @@ def register_ui_routes(app: FastAPI) -> None:
             },
         )
 
+    @app.get("/ui/view-pdf/{file_hash}", response_class=HTMLResponse)
+    async def ui_view_pdf(
+        request: Request,
+        file_hash: str,
+        repo: Annotated[ChunkRepository, Depends(_get_chunk_repo)],
+        settings: Annotated[Settings, Depends(_get_settings)],
+        page: int = 1,
+        highlight: str = "",
+    ) -> HTMLResponse:
+        """Serve an interactive PDF viewer page with optional text highlighting.
+
+        Query params:
+          page: page number to open (default 1)
+          highlight: text to search for and highlight on the page
+        """
+        if not _FILE_HASH_RE.fullmatch(file_hash):
+            raise HTTPException(status_code=404, detail="not found")
+        storage_dir = settings.RAG_PDF_STORAGE_DIR.resolve()
+        path = (storage_dir / f"{file_hash}.pdf").resolve()
+        if not path.is_relative_to(storage_dir) or not path.is_file():
+            raise HTTPException(status_code=404, detail="not found")
+
+        docs = await repo.list_source_documents()
+        display_filename = next(
+            (d.display_filename for d in docs if d.file_hash == file_hash),
+            f"{file_hash}.pdf",
+        )
+
+        import json as _json
+        return _templates.TemplateResponse(
+            request,
+            "pdf_viewer.html",
+            {
+                "filename": display_filename,
+                "pdf_url": f"/ui/pdf/{file_hash}",
+                "target_page": max(1, page),
+                "highlight_text": highlight,
+                "highlight_text_js": highlight,  # passed through tojson in template
+            },
+        )
+
     @app.post("/ui/clear", response_class=HTMLResponse)
     async def ui_clear(
         request: Request,
@@ -383,7 +431,7 @@ def register_ui_routes(app: FastAPI) -> None:
     @app.post("/ui/upload", response_class=HTMLResponse)
     async def ui_upload(
         request: Request,
-        pdf: Annotated[UploadFile, File(description="PDF to ingest")],
+        pdf: Annotated[UploadFile, File(description="Document to ingest (.pdf or .docx)")],
         repo: Annotated[ChunkRepository, Depends(_get_chunk_repo)],
         providers: Annotated[Providers, Depends(_get_providers)],
         settings: Annotated[Settings, Depends(_get_settings)],
@@ -432,14 +480,15 @@ def register_ui_routes(app: FastAPI) -> None:
 
         # ---- Magic-header validation (FR-014) -----------------------------
         try:
-            await validate_pdf_magic(pdf)
-        except InvalidPDFError as exc:
+            file_type = await validate_file_magic(pdf)
+        except InvalidFileError as exc:
             logger.warning(
-                "upload_rejected_invalid_pdf",
+                "upload_rejected_invalid_file",
                 extra={
                     TRACE_LOG_KEY: trace_id,
                     "upload_filename": pdf.filename,
                     "observed": repr(exc.observed),
+                    "expected": exc.expected,
                 },
             )
             html = _templates.TemplateResponse(
@@ -481,11 +530,10 @@ def register_ui_routes(app: FastAPI) -> None:
         # the POST handler returns.
         pdf_bytes = await pdf.read()
         display_filename = pdf.filename or "upload.pdf"
-        # The upload task needs the Gemini-specific extract_page_text method,
-        # not just the LLMProvider surface. In production the embedder IS the
-        # GeminiProvider; tests inject a compatible fake. Cast at the boundary
-        # so the type system understands the contract.
-        gemini = cast(GeminiProvider, providers.embedder)
+        # The upload task uses embedder for both page extraction (pypdf)
+        # and embedding (local fastembed ONNX). Both operations need
+        # LLMProvider methods: embed + extract_page_text.
+        provider = cast(LLMProvider, providers.embedder)
 
         job = UploadJob(task_id=trace_id, filename=display_filename)
         upload_jobs[trace_id] = job
@@ -495,7 +543,7 @@ def register_ui_routes(app: FastAPI) -> None:
                 job=job,
                 pdf_bytes=pdf_bytes,
                 display_filename=display_filename,
-                gemini=gemini,
+                provider=provider,
                 repo=repo,
                 settings=settings,
                 pool=pool,
@@ -662,7 +710,7 @@ async def _run_upload_task(
     job: UploadJob,
     pdf_bytes: bytes,
     display_filename: str,
-    gemini: GeminiProvider,
+    provider: LLMProvider,
     repo: ChunkRepository,
     settings: Settings,
     pool: AsyncConnectionPool,
@@ -697,26 +745,21 @@ async def _run_upload_task(
     async def cancel_check() -> bool:
         return job.cancel_event.is_set()
 
-    job.set_progress("clearing", "Clearing existing document…")
+    job.set_progress("clearing", "Preparing…")
 
-    # Snapshot the prior doc list BEFORE the transaction so we can both
-    # (a) include `prior_filename` in the success template (the chat-thread
-    # "— Switched to NEW.pdf (was OLD.pdf) —" separator), and
-    # (b) unlink the prior PDF files after a successful commit.
-    prior_docs = await repo.list_source_documents()
-    prior_filename = prior_docs[0].display_filename if prior_docs else None
-
+    # Multi-document mode: no clearing. The corpus is additive — each
+    # upload adds to the existing collection. Clearing is a separate
+    # explicit action via the Clear button (/ui/clear).
     try:
         async with upload_lock:
             async with pool.connection() as conn, conn.transaction():
-                await repo.delete_all_source_documents(connection=conn)
                 if job.cancel_event.is_set():
                     raise UploadCancelledError(phase="after_clear")
 
                 outcome = await ingest_pdf_core(
                     pdf_bytes=pdf_bytes,
                     display_filename=display_filename,
-                    gemini=gemini,
+                    gemini=provider,
                     repo=repo,
                     settings=settings,
                     trace_id=trace_id,
@@ -725,19 +768,11 @@ async def _run_upload_task(
                     progress_callback=progress,
                 )
             # Outside the transaction: re-read the doc list so the OOB
-            # swap on `#current-doc` reflects the post-ingest state.
+            # swap on `#current-doc` reflects the post-ingest state
+            # (all documents, not just the new one).
             docs = await repo.list_source_documents()
-            # Post-commit filesystem ops: unlink prior PDFs, then write the
-            # new one. Order: unlink first so a hash-collision on a re-ingest
-            # (same file_hash → same path) doesn't unlink the file we just
-            # wrote. The new write is atomic (.tmp → os.replace).
-            for prior in prior_docs:
-                if prior.file_hash != outcome.file_hash:
-                    _try_unlink_pdf(
-                        settings.RAG_PDF_STORAGE_DIR,
-                        prior.file_hash,
-                        trace_id=trace_id,
-                    )
+            # Write the ingested bytes to disk for /ui/pdf/{hash} serving.
+            # The DB row already committed — file write is best-effort.
             try:
                 _write_pdf_atomically(
                     settings.RAG_PDF_STORAGE_DIR,
@@ -745,10 +780,6 @@ async def _run_upload_task(
                     pdf_bytes,
                 )
             except OSError as exc:
-                # The DB ingest already committed; failing to write the PDF
-                # leaves a serveable doc whose original is unrecoverable.
-                # Log loudly but don't fail the user-visible upload — the
-                # answers still work, the filename link will 404.
                 logger.warning(
                     "pdf_persist_failed",
                     extra={
@@ -803,7 +834,7 @@ async def _run_upload_task(
             "upload_failed",
             extra={
                 TRACE_LOG_KEY: trace_id,
-                "cause": "embedding_failed" if exc.provider == "gemini" else "persistence_failed",
+                "cause": "embedding_failed" if exc.provider != "persistence" else "persistence_failed",
                 "provider": exc.provider,
                 "error": str(exc.cause),
             },
@@ -869,6 +900,7 @@ async def _run_upload_task(
             "elapsed_s": round(outcome.elapsed_s, 2),
         },
     )
+    prior_filename = None  # Multi-document mode: no prior replacement
     job.finish_complete(
         _render(
             "_upload_success.html",

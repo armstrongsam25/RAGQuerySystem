@@ -16,7 +16,7 @@ def _build_app(pool: FakePool) -> object:
     app.state.schema_version = "0001_init_vector_store.sql"
     app.state.settings = Settings(
         _env_file=None,  # type: ignore[call-arg]
-        GEMINI_API_KEY="test-key-please-ignore",
+        LLM_API_KEY="test-key-please-ignore",
         DATABASE_URL="postgresql://rag:rag@db:5432/rag",
     )
     return app
@@ -33,11 +33,12 @@ async def test_health_ok_returns_documented_payload(fake_pool_ok: FakePool) -> N
     body = resp.json()
     # Shape MUST match contracts/health.yaml HealthOk.
     assert set(body) == {"status", "schema_version", "db", "embedding_model", "embedding_dim"}
+    # Default EMBEDDING_MODEL is "text-embedding-3-small"
     assert body == {
         "status": "ok",
         "schema_version": "0001_init_vector_store.sql",
         "db": "ok",
-        "embedding_model": "gemini-embedding-001",
+        "embedding_model": "text-embedding-3-small",
         "embedding_dim": 768,
     }
 

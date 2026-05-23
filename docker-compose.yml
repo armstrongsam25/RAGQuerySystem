@@ -1,6 +1,8 @@
 services:
   db:
     image: pgvector/pgvector:pg16
+    ports:
+      - "5432:5432"
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-rag}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-rag}
@@ -38,10 +40,10 @@ services:
     extra_hosts:
       - "host.docker.internal:host-gateway"
     volumes:
-      # Mount data/ read-only so `make ingest` (which dispatches inside
-      # the container) can reach the committed sample PDF + any PDFs the
-      # developer drops in. Feature 002 / FR-029.
-      - ./data:/app/data:ro
+      # Mount data/ so `make ingest` (which dispatches inside the
+      # container) can reach the committed sample PDF + any PDFs the
+      # developer drops in, and write ingested PDFs for serving.
+      - ./data:/app/data
       # Mount evals/ read-write so `make eval` can read the committed
       # question set AND write fresh results.{jsonl,md} that we then
       # commit. Feature 005 / Article III.

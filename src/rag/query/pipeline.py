@@ -17,7 +17,7 @@ import time
 from rag.config import Settings
 from rag.log import get_logger
 from rag.providers.base import LLMProvider, Providers, UpstreamProviderError
-from rag.query.citations import build_citations
+from rag.query.citations import build_citations, answer_with_inline_citation_links
 from rag.query.prompts import (
     GENERATION_SYSTEM,
     build_generation_user_prompt,
@@ -47,6 +47,7 @@ async def answer_question(
     settings: Settings,
     trace_id: str,
     top_k_override: int | None = None,
+    source_file_hash: str = "",
 ) -> QueryResponse:
     """Run the query pipeline. Returns one of the three QueryResponse variants.
 
@@ -177,6 +178,7 @@ async def answer_question(
         verdict=verdict,
         retrieved=retrieved,
         span_max=settings.RAG_QUOTED_SPAN_MAX,
+        source_file_hash=source_file_hash,
     )
 
     # 10. Degenerate-judge recovery: entailed=True but no supporting spans (R-016).
@@ -197,7 +199,10 @@ async def answer_question(
             trace_id=trace_id,
         )
 
-    # 11. Answered.
+    # 11. Process inline citation markers in the answer text to HTML links.
+    answer_with_links = answer_with_inline_citation_links(answer_text, citations)
+
+    # 12. Answered.
     logger.info(
         "query_answered",
         extra={
@@ -207,7 +212,7 @@ async def answer_question(
         },
     )
     return QueryAnswered(
-        answer=answer_text,
+        answer=answer_with_links,
         citations=citations,
         model=settings.GENERATION_MODEL,
         trace_id=trace_id,

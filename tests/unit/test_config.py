@@ -11,29 +11,28 @@ def test_valid_env_loads(valid_env: dict[str, str]) -> None:
 
     settings = Settings(_env_file=None)  # type: ignore[call-arg]
 
-    assert isinstance(settings.GEMINI_API_KEY, SecretStr)
-    assert settings.GEMINI_API_KEY.get_secret_value() == valid_env["GEMINI_API_KEY"]
+    assert isinstance(settings.LLM_API_KEY, SecretStr)
+    assert settings.LLM_API_KEY.get_secret_value() == valid_env["LLM_API_KEY"]
     assert settings.EMBEDDING_DIM == 768
     assert settings.LOG_LEVEL == "INFO"
     assert str(settings.DATABASE_URL).startswith("postgresql://")
 
 
-def test_missing_gemini_key_raises_with_field_name(clean_env: None) -> None:
+def test_missing_llm_key_raises_with_field_name(clean_env: None) -> None:
     from rag.config import Settings
 
     with pytest.raises(ValidationError) as exc_info:
         Settings(_env_file=None)  # type: ignore[call-arg]
 
-    # Spec FR-003: the error MUST name the missing variable.
     errors = exc_info.value.errors()
     fields = {tuple(e["loc"]) for e in errors}
-    assert ("GEMINI_API_KEY",) in fields, f"GEMINI_API_KEY missing from {fields!r}"
+    assert ("LLM_API_KEY",) in fields, f"LLM_API_KEY missing from {fields!r}"
 
 
-def test_empty_gemini_key_raises(clean_env: None, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_empty_llm_key_raises(clean_env: None, monkeypatch: pytest.MonkeyPatch) -> None:
     from rag.config import Settings
 
-    monkeypatch.setenv("GEMINI_API_KEY", "")
+    monkeypatch.setenv("LLM_API_KEY", "")
     monkeypatch.setenv("DATABASE_URL", "postgresql://rag:rag@db:5432/rag")
 
     with pytest.raises(ValidationError) as exc_info:
@@ -41,7 +40,7 @@ def test_empty_gemini_key_raises(clean_env: None, monkeypatch: pytest.MonkeyPatc
 
     errors = exc_info.value.errors()
     fields = {tuple(e["loc"]) for e in errors}
-    assert ("GEMINI_API_KEY",) in fields
+    assert ("LLM_API_KEY",) in fields
 
 
 # Note on env-var typo detection: pydantic-settings reads env vars by

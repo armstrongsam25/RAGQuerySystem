@@ -1,4 +1,4 @@
-"""PDF ingestion pipeline.
+"""Document ingestion pipeline — PDF and DOCX.
 
 Page-by-page extraction (per research R-010) → page-bounded recursive
 character splitting (R-011) → batched embedding → idempotent persistence.
@@ -10,6 +10,8 @@ cancellation-aware) for the upload route, and the
 in behavior.
 """
 
+from rag.ingest.docx import extract_docx_pages
+from rag.ingest.pdf import extract_pages
 from rag.ingest.pipeline import (
     IngestOutcome,
     UploadCancelledError,
@@ -20,6 +22,8 @@ from rag.ingest.pipeline import (
 __all__ = [
     "IngestOutcome",
     "UploadCancelledError",
+    "extract_docx_pages",
+    "extract_pages",
     "ingest_pdf",
     "ingest_pdf_core",
 ]
